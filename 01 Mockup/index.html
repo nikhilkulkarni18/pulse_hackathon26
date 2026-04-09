@@ -168,18 +168,31 @@
 
           <article class="tab-screen" data-tab="pulse">
             <section class="pulse-card">
-              <div class="pulse-card-top">
-                <div>
-                  <div class="section-topline">Curo insight</div>
-                  <div id="pulseSnapshotBadge" class="pulse-snapshot-badge">No workouts logged yet</div>
-                  <h2 id="pulseHeadline">You are close to your target this week</h2>
-                  <p id="pulseEffortSummary" class="section-copy">A solid session that moves the week forward.</p>
+              <div id="pulseCardTop" class="pulse-card-top">
+                <div class="pulse-hero-main">
+                  <div class="pulse-curo-shell">
+                    <img
+                      id="pulseCuroVisual"
+                      class="pulse-curo-visual"
+                      src="../99 curo images/Meet.png"
+                      alt="Curo"
+                    />
+                  </div>
+                  <div class="pulse-insight-copy">
+                    <h2 id="pulseHeadline">You are close to your target this week</h2>
+                  </div>
                 </div>
-                <div class="pulse-state-pill" id="pulseMomentumPill">Momentum building</div>
+                <div class="pulse-insight-rail">
+                  <div class="pulse-state-pill" id="pulseMomentumPill">Momentum building</div>
+                </div>
               </div>
 
               <div class="pulse-main-card">
                 <div class="pulse-visual-column">
+                  <div class="pulse-visual-header">
+                    <div class="section-topline">Body map</div>
+                    <h3>Where your body is responding</h3>
+                  </div>
                   <div
                     id="pulseMap"
                     class="reference-map"
@@ -189,37 +202,37 @@
                     <img
                       class="body-reference body-reference-base"
                       id="bodyReferenceBase"
-                      src="../99 Current Body Map Images/template.jpeg"
+                      src="../99 Current Body Map Images/template_body.png"
                       alt=""
                     />
                     <img
                       class="body-reference body-reference-overlay"
                       data-asset-zone="shoulders"
-                      src="../99 Current Body Map Images/shoulders.jpeg"
+                      src="../99 Current Body Map Images/shoulders_body.png"
                       alt=""
                     />
                     <img
                       class="body-reference body-reference-overlay"
                       data-asset-zone="arms"
-                      src="../99 Current Body Map Images/arms.jpeg"
+                      src="../99 Current Body Map Images/arms_body.png"
                       alt=""
                     />
                     <img
                       class="body-reference body-reference-overlay"
                       data-asset-zone="chest"
-                      src="../99 Current Body Map Images/chest.jpeg"
+                      src="../99 Current Body Map Images/chest_body.png"
                       alt=""
                     />
                     <img
                       class="body-reference body-reference-overlay"
                       data-asset-zone="back"
-                      src="../99 Current Body Map Images/back.jpeg"
+                      src="../99 Current Body Map Images/back_body.png"
                       alt=""
                     />
                     <img
                       class="body-reference body-reference-overlay"
                       data-asset-zone="legs"
-                      src="../99 Current Body Map Images/legs.jpeg"
+                      src="../99 Current Body Map Images/legs_body.png"
                       alt=""
                     />
                     <div class="body-hotspot body-hotspot-core" data-hotspot="core"></div>
@@ -230,7 +243,7 @@
                 <div class="pulse-side-column">
                   <section class="pulse-side-card">
                     <div class="section-topline">This week</div>
-                    <h3 id="pulseLoadValue">Below target</h3>
+                    <h3 id="pulseLoadValue" class="pulse-layer-title">Below target</h3>
                     <p id="pulseLoadSubtext" class="support-copy">Latest workout: Boxing • 45 min • Moderate effort</p>
                     <div class="mini-load-meter">
                       <div class="mini-load-target" id="miniLoadTarget"></div>
@@ -247,7 +260,7 @@
 
                   <section class="pulse-side-card">
                     <div class="section-topline">Goal adherence</div>
-                    <h3 id="goalAdherenceTitle">One more class gets you back into range</h3>
+                    <h3 id="goalAdherenceTitle" class="pulse-layer-title">One more class gets you back into range</h3>
                     <p id="goalAdherenceText" class="support-copy">
                       You are building momentum, and this card carries the single recommended next move.
                     </p>
@@ -266,16 +279,6 @@
                 </div>
               </div>
 
-              <section class="curo-card">
-                <div class="curo-card-top">
-                  <div class="curo-avatar">C</div>
-                  <div>
-                    <div class="section-topline">Curo</div>
-                    <h3 id="trainingInsightTitle">What today means</h3>
-                  </div>
-                </div>
-                <p id="pulseCuroText" class="curo-text"></p>
-              </section>
             </section>
           </article>
         </section>

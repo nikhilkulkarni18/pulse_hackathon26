@@ -363,10 +363,10 @@ const bcaNudge = document.getElementById("bcaNudge");
 const helpToggleButton = document.getElementById("helpToggleButton");
 const supportPanel = document.getElementById("supportPanel");
 const viewPulseFromPlan = document.getElementById("viewPulseFromPlan");
+const pulseCardTop = document.getElementById("pulseCardTop");
 const pulseHeadline = document.getElementById("pulseHeadline");
-const pulseEffortSummary = document.getElementById("pulseEffortSummary");
 const pulseMomentumPill = document.getElementById("pulseMomentumPill");
-const pulseSnapshotBadge = document.getElementById("pulseSnapshotBadge");
+const pulseCuroVisual = document.getElementById("pulseCuroVisual");
 const pulseLoadValue = document.getElementById("pulseLoadValue");
 const pulseLoadSubtext = document.getElementById("pulseLoadSubtext");
 const miniLoadTarget = document.getElementById("miniLoadTarget");
@@ -380,13 +380,17 @@ const adherenceSplitLabel = document.getElementById("adherenceSplitLabel");
 const adherenceProgressDots = document.getElementById("adherenceProgressDots");
 const adherenceProgressLabel = document.getElementById("adherenceProgressLabel");
 const primaryAction = document.getElementById("primaryAction");
-const trainingInsightTitle = document.getElementById("trainingInsightTitle");
-const pulseCuroText = document.getElementById("pulseCuroText");
 const bodyReferenceBase = document.getElementById("bodyReferenceBase");
 const bodyReferenceNodes = [...document.querySelectorAll("[data-asset-zone]")];
 const hotspotNodes = [...document.querySelectorAll("[data-hotspot]")];
 let bodyReferenceOverlaysReady = false;
 const bodyAssetPreparation = prepareBodyReferenceOverlays();
+
+const CURO_VISUAL_LIBRARY = {
+  default: "../99 curo images/Meet.png",
+  happy: "../99 curo images/streak check_.png",
+  unhappy: "../99 curo images/Dont_do_this.png",
+};
 
 function cloneWorkout(workout) {
   return {
@@ -1902,66 +1906,75 @@ function getPulseNarrative(summary, weekly, goal, plannedSessions) {
   const focusAreaInline = summary.focusArea?.inline || "your recent signal";
   const focusAreaLabel = summary.focusArea?.label || "Recent signal";
   const recommendedFormat = summary.recommendedFormat || "HRX";
-  const sessionProgress = `${weekly.sessions}/${plannedSessions} sessions are done so far.`;
-  const goalFrame =
-    state.profile.goal === "weight_loss"
-      ? "Keeping the map broad matters more than chasing a perfect score."
-      : state.profile.goal === "strength"
-        ? "The win now is repeating the right signal before it fades."
-        : "Protecting the rhythm matters more than overreaching.";
+  const remainingSessions = Math.max(0, plannedSessions - weekly.sessions);
+  const sessionProgress =
+    weekly.status === "above"
+      ? "You are already above your weekly load target, so the next win is recovery quality."
+      : weekly.status === "in_range"
+        ? "You are already inside your weekly load zone."
+        : remainingSessions === 1
+          ? "You are one session away from your weekly plan."
+          : `You are ${remainingSessions} sessions away from your weekly plan.`;
 
   if (summary.momentumState === "fresh_gain") {
     return {
-      headline: "Your map is waking up.",
+      headline: "Momentum is building. Keep it going.",
       pill: "Fresh gain",
       adherenceTitle: "One more class locks this in",
       adherenceText: `You have live signal on the map now. Another ${recommendedFormat} session this week will help the routine stick. ${sessionProgress}`,
       actionLabel: `Protect with ${recommendedFormat}`,
       insightTitle: "What changed today",
-      insightText: `That session activated ${topZoneText}. The next win is not intensity, it is protecting the signal before it cools.`,
+      insightText: `${topZoneText} showed activity today. ${sessionProgress} Another ${recommendedFormat} class before it cools will turn this into a pattern.`,
     };
   }
 
   if (summary.momentumState === "recovering") {
     return {
-      headline: "You brought the signal back.",
+      headline: "You are back on track. Repeat it this week.",
       pill: "Recovering",
       adherenceTitle: "One more class keeps the comeback alive",
       adherenceText: `That last class reversed the slide. Repeat it once more this week and the comeback will feel real. ${sessionProgress}`,
       actionLabel: `Keep it alive with ${recommendedFormat}`,
       insightTitle: "What changed today",
-      insightText: `That return session brought the signal back across ${topZoneText}. One more workout this week helps lock the comeback in.`,
+      insightText: `${topZoneText} came back today. ${sessionProgress} One more ${recommendedFormat} session this week keeps the comeback real.`,
     };
   }
 
   if (summary.momentumState === "worth_protecting") {
     return {
-      headline: "This week has momentum.",
+      headline: "This week is working. Keep it alive.",
       pill: "Worth protecting",
       adherenceTitle: "Protect the momentum you built",
       adherenceText: `You have built a strong recent signal. Protect it before ${focusAreaInline} cools any further. ${sessionProgress}`,
       actionLabel: `Protect with ${recommendedFormat}`,
       insightTitle: "How to protect this week",
-      insightText: `Your map is broad enough to feel like momentum now. ${focusAreaLabel} is the part to watch next. ${goalFrame}`,
+      insightText: `The map is broad, load is moving, and ${focusAreaInline} is the first place likely to fade. ${recommendedFormat} is the best class to protect the week.`,
     };
   }
 
   if (summary.momentumState === "cooling") {
     const isEarlyCooling = summary.coolingRisk === "early_cooling";
     return {
-      headline: isEarlyCooling ? "A couple of areas are starting to cool." : "Your pulse is cooling this week.",
+      headline: isEarlyCooling
+        ? "Momentum is cooling. Catch it now."
+        : "Progress is cooling. Act this week.",
       pill: isEarlyCooling ? "Cooling early" : "Cooling",
       adherenceTitle: `${focusAreaLabel} is starting to cool`,
       adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class this week restores the curve while the week is still easy to save. ${sessionProgress}`,
       actionLabel: `Restore with ${recommendedFormat}`,
       insightTitle: isEarlyCooling ? "What is starting to cool" : "What is cooling now",
-      insightText: `The recent signal is fading, especially around ${focusAreaInline}. ${recommendedFormat} is the easiest way to widen the map again.`,
+      insightText: isEarlyCooling
+        ? `${focusAreaLabel} is slipping before the week is complete. ${sessionProgress} One ${recommendedFormat} class will widen the map again while the save is easy.`
+        : `Recent signal is fading around ${focusAreaInline}, and load is still short of target. ${recommendedFormat} is the fastest way to bring the week back into shape.`,
     };
   }
 
   if (summary.momentumState === "slipping") {
     return {
-      headline: summary.coolingRisk === "dropoff_risk" ? "Your map has flattened." : "Your pulse is cooling this week.",
+      headline:
+        summary.coolingRisk === "dropoff_risk"
+          ? "You can restart this week. One class does it."
+          : "You are slipping this week. Catch it now.",
       pill: summary.coolingRisk === "dropoff_risk" ? "Ready to restart" : "Momentum slipping",
       adherenceTitle: summary.coolingRisk === "dropoff_risk" ? "A single session restarts the map" : `${focusAreaLabel} is fading this week`,
       adherenceText:
@@ -1975,13 +1988,13 @@ function getPulseNarrative(summary, weekly, goal, plannedSessions) {
       insightTitle: "What your body needs now",
       insightText:
         summary.coolingRisk === "dropoff_risk"
-          ? `This is a restart moment, not a failure. The easiest way back is one ${recommendedFormat} class that wakes up ${focusAreaInline} again.`
-          : `This is a recoverable dip, not a reset. A ${recommendedFormat} class would restart ${focusAreaInline} and widen the map again.`,
+          ? `The map has flattened around ${focusAreaInline}. One meaningful ${recommendedFormat} class will wake it back up and restart the week.`
+          : `${focusAreaLabel} is fading and the weekly signal is slipping. One ${recommendedFormat} class brings the map back before this turns into a reset.`,
     };
   }
 
   return {
-    headline: "Your map has flattened.",
+    headline: "Restart this week. One class is enough.",
     pill: "Ready to restart",
     adherenceTitle: "A single session restarts the map",
     adherenceText: `The recent signal has mostly cooled off, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`,
@@ -2121,12 +2134,68 @@ function renderPulseMap(pulseStates) {
   });
 }
 
+function getGoalAdherenceBand(completedSessions, plannedSessions) {
+  const safePlanned = Math.max(1, plannedSessions);
+  const adherenceRatio = clamp(completedSessions / safePlanned, 0, 1);
+
+  if (adherenceRatio < 0.34) {
+    return { band: "low", ratio: adherenceRatio };
+  }
+
+  if (adherenceRatio < 0.67) {
+    return { band: "medium", ratio: adherenceRatio };
+  }
+
+  return { band: "high", ratio: adherenceRatio };
+}
+
+function isBodyMapFaded(summary) {
+  return summary.visibleZoneCount <= 1 && summary.topZoneAverage < 0.22;
+}
+
+function getPulseHeaderDiagnostics(pulseSummary, weekly, plannedSessions) {
+  const adherence = getGoalAdherenceBand(weekly.sessions, plannedSessions);
+  const bodyMapFaded = isBodyMapFaded(pulseSummary);
+  let headerState = "progress";
+
+  if (bodyMapFaded) {
+    headerState = "risk";
+  } else if (adherence.band === "low") {
+    headerState = "risk";
+  } else if (weekly.status === "below") {
+    headerState = "progress";
+  } else {
+    headerState = "positive";
+  }
+
+  return {
+    headerState,
+    adherenceBand: adherence.band,
+    adherenceRatio: adherence.ratio,
+    loadState: weekly.status,
+    bodyMapFaded,
+  };
+}
+
+function getCuroVisualState(headerState) {
+  if (headerState === "positive") {
+    return "happy";
+  }
+
+  if (headerState === "risk") {
+    return "unhappy";
+  }
+
+  return "default";
+}
+
 function renderPulse() {
   if (!state.selectedUserId) {
-    pulseHeadline.textContent = "Add a member to see their Pulse";
-    pulseSnapshotBadge.textContent = "No workouts logged yet";
-    pulseEffortSummary.textContent = "The Pulse will appear once a member is created and workouts are logged.";
+    pulseHeadline.textContent = "Add a member to start Pulse";
     pulseMomentumPill.textContent = "Waiting";
+    pulseCuroVisual.src = CURO_VISUAL_LIBRARY.default;
+    pulseCardTop.classList.remove("is-progress", "is-positive", "is-risk");
+    pulseCardTop.classList.add("is-progress");
     pulseLoadValue.textContent = "Waiting";
     pulseLoadSubtext.textContent = "No member selected";
     miniLoadTarget.style.left = "0%";
@@ -2143,8 +2212,6 @@ function renderPulse() {
     adherenceProgressLabel.textContent = "0/0 done";
     renderAdherenceProgressDots(0, 1);
     primaryAction.textContent = "Create first member";
-    trainingInsightTitle.textContent = "What this means";
-    pulseCuroText.textContent = "Nothing is being tracked yet. Add a member and log the first workout to begin.";
     renderPulseMap(
       Object.fromEntries(
         Object.keys(ZONE_LIBRARY).map((zone) => [zone, { activation: 0 }]),
@@ -2179,11 +2246,17 @@ function renderPulse() {
   const previousWeeklyTotal = roundLoad(
     Math.max(0, weekly.total - (latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0)),
   );
+  const plannedSessions = Number(state.profile.frequency);
+  const headerDiagnostics = getPulseHeaderDiagnostics(pulseSummary, weekly, plannedSessions);
+  const { headerState } = headerDiagnostics;
 
   pulseHeadline.textContent = narrative.headline;
-  pulseSnapshotBadge.textContent = snapshot.timelineLabel;
-  pulseEffortSummary.textContent = narrative.insightText;
   pulseMomentumPill.textContent = narrative.pill;
+  pulseCuroVisual.src = CURO_VISUAL_LIBRARY[getCuroVisualState(headerState)];
+  pulseCardTop.classList.remove("is-progress", "is-positive", "is-risk");
+  pulseCardTop.classList.add(
+    headerState === "positive" ? "is-positive" : headerState === "risk" ? "is-risk" : "is-progress",
+  );
   pulseMomentumPill.classList.remove("is-cooling", "is-risk", "is-recovering", "is-light", "is-moderate", "is-high", "is-very-high");
   pulseMomentumPill.classList.toggle("is-cooling", pulseSummary.coolingRisk === "early_cooling");
   pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
@@ -2216,8 +2289,6 @@ function renderPulse() {
   adherenceProgressLabel.textContent = adherence.progress;
   renderAdherenceProgressDots(weekly.sessions, Number(state.profile.frequency));
   primaryAction.textContent = adherence.actionLabel || "View goal plan";
-  trainingInsightTitle.textContent = "What today means";
-  pulseCuroText.textContent = workoutEffort.guidance;
 
   renderPulseMap(pulseSummary.zones);
 }
