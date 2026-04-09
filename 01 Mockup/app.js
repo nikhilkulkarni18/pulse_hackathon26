@@ -1901,7 +1901,7 @@ function renderGoal() {
   goalNextButton.disabled = false;
 }
 
-function getPulseNarrative(summary, weekly, goal, plannedSessions) {
+function getPulseNarrative(summary, weekly, goal, plannedSessions, totalWorkouts = 0) {
   const topZoneText = formatZones(summary.topZones);
   const focusAreaInline = summary.focusArea?.inline || "your recent signal";
   const focusAreaLabel = summary.focusArea?.label || "Recent signal";
@@ -1915,6 +1915,18 @@ function getPulseNarrative(summary, weekly, goal, plannedSessions) {
         : remainingSessions === 1
           ? "You are one session away from your weekly plan."
           : `You are ${remainingSessions} sessions away from your weekly plan.`;
+
+  if (totalWorkouts === 0) {
+    return {
+      headline: "Start your first week strong.",
+      pill: "Getting started",
+      adherenceTitle: "Log your first class",
+      adherenceText: `Your plan is ready. Start with one ${recommendedFormat} class and the Pulse will begin tracking your week.`,
+      actionLabel: `Start with ${recommendedFormat}`,
+      insightTitle: "How to begin",
+      insightText: `Your first class will establish the starting signal for the week. ${recommendedFormat} is a strong place to begin.`,
+    };
+  }
 
   if (summary.momentumState === "fresh_gain") {
     return {
@@ -2153,7 +2165,17 @@ function isBodyMapFaded(summary) {
   return summary.visibleZoneCount <= 1 && summary.topZoneAverage < 0.22;
 }
 
-function getPulseHeaderDiagnostics(pulseSummary, weekly, plannedSessions) {
+function getPulseHeaderDiagnostics(pulseSummary, weekly, plannedSessions, totalWorkouts = 0) {
+  if (totalWorkouts === 0) {
+    return {
+      headerState: "progress",
+      adherenceBand: "starting",
+      adherenceRatio: 0,
+      loadState: weekly.status,
+      bodyMapFaded: false,
+    };
+  }
+
   const adherence = getGoalAdherenceBand(weekly.sessions, plannedSessions);
   const bodyMapFaded = isBodyMapFaded(pulseSummary);
   let headerState = "progress";
@@ -2228,7 +2250,13 @@ function renderPulse() {
   const snapshot = getProgressSnapshotCopy();
   const latestWorkout = getLatestCompletedWorkout(workouts);
   const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
-  const narrative = getPulseNarrative(pulseSummary, weekly, goal, Number(state.profile.frequency));
+  const narrative = getPulseNarrative(
+    pulseSummary,
+    weekly,
+    goal,
+    Number(state.profile.frequency),
+    workouts.length,
+  );
   const adherence = getGoalAdherenceCopy(
     pulseSummary,
     weekly,
@@ -2247,7 +2275,12 @@ function renderPulse() {
     Math.max(0, weekly.total - (latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0)),
   );
   const plannedSessions = Number(state.profile.frequency);
-  const headerDiagnostics = getPulseHeaderDiagnostics(pulseSummary, weekly, plannedSessions);
+  const headerDiagnostics = getPulseHeaderDiagnostics(
+    pulseSummary,
+    weekly,
+    plannedSessions,
+    workouts.length,
+  );
   const { headerState } = headerDiagnostics;
 
   pulseHeadline.textContent = narrative.headline;
@@ -2258,9 +2291,11 @@ function renderPulse() {
     headerState === "positive" ? "is-positive" : headerState === "risk" ? "is-risk" : "is-progress",
   );
   pulseMomentumPill.classList.remove("is-cooling", "is-risk", "is-recovering", "is-light", "is-moderate", "is-high", "is-very-high");
-  pulseMomentumPill.classList.toggle("is-cooling", pulseSummary.coolingRisk === "early_cooling");
-  pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
-  pulseMomentumPill.classList.toggle("is-recovering", pulseSummary.momentumState === "fresh_gain" || pulseSummary.momentumState === "recovering");
+  if (workouts.length > 0) {
+    pulseMomentumPill.classList.toggle("is-cooling", pulseSummary.coolingRisk === "early_cooling");
+    pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
+    pulseMomentumPill.classList.toggle("is-recovering", pulseSummary.momentumState === "fresh_gain" || pulseSummary.momentumState === "recovering");
+  }
   pulseLoadValue.textContent = weekly.targetLabel;
   pulseLoadSubtext.textContent = `${workouts.length} workouts logged.`;
 
