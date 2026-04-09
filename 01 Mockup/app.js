@@ -1196,25 +1196,29 @@ function getPulseActionContext() {
   const summary = getPulseSummary();
   const goal = getGoalConfig();
   const program = generateWeeklyProgram();
-  const currentCalendarWeek = getCalendarWeekSummary(state.currentDate, 0);
+  const currentWindow = getWeeklyLoadSummary(state.currentDate);
   const nextPlannedWorkout = getNextPlannedWorkout(state.profile, state.currentDate);
   const plannedSessions = Number(state.profile.frequency);
+  const actionSummary = {
+    ...summary,
+    recommendedFormat: nextPlannedWorkout.format || summary.recommendedFormat || DEFAULT_HRX_FORMAT,
+  };
   const adherence = getGoalAdherenceCopy(
-    summary,
-    currentCalendarWeek,
+    actionSummary,
+    currentWindow,
     goal,
     Number(state.profile.frequency),
     program,
   );
   const isRecoveryAction =
-    adherence.actionLabel === "Recover" && currentCalendarWeek.sessions >= plannedSessions;
+    adherence.actionLabel === "Recover" && currentWindow.sessions >= plannedSessions;
 
   return {
-    summary,
+    summary: actionSummary,
     adherence,
     nextPlannedWorkout,
     isRecoveryAction,
-    recommendedFormat: nextPlannedWorkout.format || summary.recommendedFormat || DEFAULT_HRX_FORMAT,
+    recommendedFormat: actionSummary.recommendedFormat,
   };
 }
 
@@ -1462,17 +1466,7 @@ function getOrderedTrainingModes(profile = state.profile) {
   });
 
   return Object.fromEntries(
-    modeEntries.map(([key, value]) => [
-      key,
-      {
-        ...value,
-        recommended: key === recommendedMode,
-        description:
-          key === recommendedMode
-            ? `${value.description} Recommended for this goal.`
-            : value.description,
-      },
-    ]),
+    modeEntries.map(([key, value]) => [key, { ...value }]),
   );
 }
 
@@ -1797,7 +1791,7 @@ function getWorkoutEffortSummary(workout, weekly) {
     const fallbackBand = EFFORT_BAND_LIBRARY[0];
     return {
       ...fallbackBand,
-      guidance: "Log one workout to start building this week.",
+      guidance: "Log one workout to start building your last 7 days.",
       workoutLabel: "No workout logged yet",
     };
   }
@@ -1809,7 +1803,7 @@ function getWorkoutEffortSummary(workout, weekly) {
     return {
       ...band,
       workoutLabel,
-      guidance: `${band.description} You are already above target for the week, so recovery should be the priority now.`,
+      guidance: `${band.description} You are already above target for the last 7 days, so recovery should be the priority now.`,
     };
   }
 
@@ -1817,7 +1811,7 @@ function getWorkoutEffortSummary(workout, weekly) {
     return {
       ...band,
       workoutLabel,
-      guidance: `${band.description} You are in the right zone for your goal this week.`,
+      guidance: `${band.description} You are in the right zone for your goal over the last 7 days.`,
     };
   }
 
@@ -1825,7 +1819,7 @@ function getWorkoutEffortSummary(workout, weekly) {
     return {
       ...band,
       workoutLabel,
-      guidance: `${band.description} Good for consistency, but this week still needs one stronger push.`,
+      guidance: `${band.description} Good for consistency, but the last 7 days still need one stronger push.`,
     };
   }
 
@@ -1871,11 +1865,11 @@ function getScenarioWorkouts() {
   });
 }
 
-function getWeeklyLoadSummary() {
+function getWeeklyLoadSummary(referenceDate = state.currentDate) {
   const workouts = getScenarioWorkouts();
   const goal = getGoalConfig();
-  const rollingWindow = getWindowRange(state.currentDate, ROLLING_LOAD_DAYS);
-  const baselineWindow = getWindowRange(state.currentDate, BASELINE_LOAD_DAYS, ROLLING_LOAD_DAYS);
+  const rollingWindow = getWindowRange(referenceDate, ROLLING_LOAD_DAYS);
+  const baselineWindow = getWindowRange(referenceDate, BASELINE_LOAD_DAYS, ROLLING_LOAD_DAYS);
 
   const rollingWorkouts = workouts.filter(
     (workout) => workout.dateObject >= rollingWindow.start && workout.dateObject <= rollingWindow.end,
@@ -1908,6 +1902,9 @@ function getWeeklyLoadSummary() {
     rollingWorkouts,
     latestWorkout,
     baselineWindow,
+    start: rollingWindow.start,
+    end: rollingWindow.end,
+    label: formatWeekRangeLabel(rollingWindow.start, rollingWindow.end),
     rollingLabel: `${ROLLING_LOAD_DAYS}-day rolling load`,
     baselineLoad,
     sessions,
@@ -2373,7 +2370,7 @@ function getPlanItemLabel(item) {
 
 function getNextPlannedWorkout(profile = state.profile, referenceDate = state.currentDate) {
   const program = generateWeeklyProgram(profile);
-  const currentWeek = getCalendarWeekSummary(referenceDate, 0);
+  const currentWeek = getWeeklyLoadSummary(referenceDate);
   const safeIndex = clamp(currentWeek.sessions, 0, Math.max(0, program.patternItems.length - 1));
   const item = program.patternItems[safeIndex] || null;
 
@@ -2579,36 +2576,31 @@ function getWeeklyLoadSubtext(weekly, pulseSummary) {
 }
 
 function getWeekTransitionNarrative(currentWeek, previousWeek, recommendedFormat, referenceDate = state.currentDate) {
-  const daysIntoCurrentWeek = Math.max(
-    0,
-    diffDays(startOfDay(referenceDate), startOfDay(currentWeek.start)),
-  );
-
-  if (currentWeek.sessions > 0 || previousWeek.sessions === 0 || daysIntoCurrentWeek >= 2) {
+  if (currentWeek.sessions > 0 || previousWeek.sessions === 0) {
     return null;
   }
 
   const sessionLabel = formatSessionCount(previousWeek.sessions);
   const carryForward =
     previousWeek.status === "above"
-      ? "You pushed above target last week."
+      ? "Your previous 7-day window was above target."
       : previousWeek.status === "in_range"
-        ? "You landed right in target last week."
-        : `You logged ${sessionLabel} last week and started building momentum.`;
+        ? "Your previous 7-day window landed in target."
+        : `You logged ${sessionLabel} in the previous 7-day window and started building momentum.`;
 
   return {
     headline:
       previousWeek.status === "above" || previousWeek.status === "in_range"
-        ? "You did well last week. Keep it going."
-        : "You started last week well. Keep the rhythm going.",
+        ? "Your last 7 days went well. Keep it going."
+        : "Your earlier 7-day window started well. Keep the rhythm going.",
     visualState:
       previousWeek.status === "above" || previousWeek.status === "in_range" ? "positive" : "progress",
-    pill: "New week",
-    adherenceTitle: "Carry last week forward",
-    adherenceText: `${carryForward} Start this week with ${recommendedFormat} so your momentum carries forward.`,
+    pill: "Keep momentum",
+    adherenceTitle: "Carry recent momentum forward",
+    adherenceText: `${carryForward} Log ${recommendedFormat} now so the last-7-days view keeps moving.`,
     actionLabel: `Start with ${recommendedFormat}`,
-    insightTitle: "Last week and next step",
-    insightText: `${previousWeek.label}: ${sessionLabel}. Start this week with ${recommendedFormat} to keep the streak alive.`,
+    insightTitle: "Previous 7 days and next step",
+    insightText: `${previousWeek.label}: ${sessionLabel}. Log ${recommendedFormat} now to keep the momentum alive.`,
   };
 }
 
@@ -2619,21 +2611,16 @@ function getPulseHeaderSubtext(
   totalWorkouts = 0,
   referenceDate = state.currentDate,
 ) {
-  const daysIntoCurrentWeek = Math.max(
-    0,
-    diffDays(startOfDay(referenceDate), startOfDay(currentWeek.start)),
-  );
-
   if (totalWorkouts === 0) {
-    return "Start with one class and Pulse will begin tracking your week.";
+    return "Start with one class and Pulse will begin tracking your last 7 days.";
   }
 
-  if (currentWeek.sessions === 0 && previousWeek.sessions > 0 && daysIntoCurrentWeek < 2) {
-    return `Last week went well. Start this week early to keep it going.`;
+  if (currentWeek.sessions === 0 && previousWeek.sessions > 0) {
+    return "Your earlier 7-day window went well. A fresh session now keeps the momentum moving.";
   }
 
   if (summary.momentumState === "fresh_gain") {
-    return "You made a strong start. One more session this week will build on it.";
+    return "You made a strong start. One more session in the next few days will build on it.";
   }
 
   if (summary.momentumState === "recovering") {
@@ -2641,22 +2628,22 @@ function getPulseHeaderSubtext(
   }
 
   if (summary.momentumState === "worth_protecting") {
-    return "The week has real momentum now. The next win is protecting it with one more class.";
+    return "Your last 7 days have real momentum now. The next win is protecting it with one more class.";
   }
 
   if (summary.momentumState === "cooling") {
-    return "You still have momentum, but this week needs another class soon.";
+    return "You still have momentum, but the last-7-days view needs another class soon.";
   }
 
   if (summary.momentumState === "slipping") {
-    return "Older sessions are still helping, but this week needs a fresh workout now.";
+    return "Older sessions are still helping, but the last-7-days view needs a fresh workout now.";
   }
 
   if (summary.momentumState === "flat") {
-    return "You have a good start to build from, but this week still needs one more meaningful session.";
+    return "You have a good start to build from, but the last-7-days view still needs one more meaningful session.";
   }
 
-  return "Stay close to the plan this week and keep the next step simple.";
+  return "Stay close to the plan over the next 7 days and keep the next step simple.";
 }
 
 function getBodyResponseCopy(summary) {
@@ -2833,13 +2820,9 @@ function renderChoiceGrid(target, library, activeKey, onSelect, className = "cho
     if (key === activeKey) {
       button.classList.add("active");
     }
-    const recommendedBadge = value.recommended
-      ? '<span class="choice-badge">Recommended</span>'
-      : "";
     button.innerHTML = `
       <span class="choice-header">
         <strong>${value.label}</strong>
-        ${recommendedBadge}
       </span>
       <small>${value.description}</small>
     `;
@@ -3277,12 +3260,12 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
   const remainingSessions = Math.max(0, plannedSessions - adherenceWeek.sessions);
   const sessionProgress =
     adherenceWeek.status === "above"
-      ? "You are already above your weekly target, so the next win is recovery quality."
+      ? "You are already above your 7-day target, so the next win is recovery quality."
       : adherenceWeek.status === "in_range"
-        ? "You are already inside your weekly target zone."
+        ? "You are already inside your 7-day target zone."
         : remainingSessions === 1
-          ? "You are one session away from your weekly plan."
-          : `You are ${remainingSessions} sessions away from your weekly plan.`;
+          ? "You are one session away from your 7-day plan."
+          : `You are ${remainingSessions} sessions away from your 7-day plan.`;
 
   if (totalWorkouts === 0) {
     return {
@@ -3290,10 +3273,10 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
       visualState: "progress",
       pill: "Getting started",
       adherenceTitle: "Log your first class",
-      adherenceText: `Your plan is ready. Start with one ${recommendedFormat} class and the Pulse will begin tracking your week.`,
+      adherenceText: `Your plan is ready. Start with one ${recommendedFormat} class and the Pulse will begin tracking your last 7 days.`,
       actionLabel: `Start with ${recommendedFormat}`,
       insightTitle: "How to begin",
-      insightText: `Your first class sets the tone for the week. ${recommendedFormat} is a strong place to begin.`,
+      insightText: `Your first class sets the tone for the next 7 days. ${recommendedFormat} is a strong place to begin.`,
     };
   }
 
@@ -3303,7 +3286,7 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
       visualState: totalWorkouts === 1 ? "progress" : "positive",
       pill: "Building",
       adherenceTitle: "One more class locks this in",
-      adherenceText: `Your body is already responding. Another ${recommendedFormat} session this week will help the routine stick. ${sessionProgress}`,
+      adherenceText: `Your body is already responding. Another ${recommendedFormat} session in the next few days will help the routine stick. ${sessionProgress}`,
       actionLabel: `Protect with ${recommendedFormat}`,
       insightTitle: "What changed today",
       insightText: `${topZoneText} responded today. ${sessionProgress} Another ${recommendedFormat} class soon will turn this into a pattern.`,
@@ -3312,52 +3295,52 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
 
   if (summary.momentumState === "recovering") {
     return {
-      headline: "You are back on track. Repeat it this week.",
+      headline: "You are back on track. Repeat it soon.",
       visualState: "positive",
       pill: "Recovering",
       adherenceTitle: "One more class keeps the comeback alive",
-      adherenceText: `That last class reversed the slide. Repeat it once more this week and the comeback will feel real. ${sessionProgress}`,
+      adherenceText: `That last class reversed the slide. Repeat it once more in the next few days and the comeback will feel real. ${sessionProgress}`,
       actionLabel: `Keep it alive with ${recommendedFormat}`,
       insightTitle: "What changed today",
-      insightText: `${topZoneText} came back today. ${sessionProgress} One more ${recommendedFormat} session this week keeps the comeback real.`,
+      insightText: `${topZoneText} came back today. ${sessionProgress} One more ${recommendedFormat} session soon keeps the comeback real.`,
     };
   }
 
   if (summary.momentumState === "worth_protecting") {
     return {
-      headline: "This week is working. Keep it alive.",
+      headline: "Your last 7 days are working. Keep it alive.",
       visualState: "positive",
       pill: "Worth protecting",
       adherenceTitle: "Protect the momentum you built",
-      adherenceText: `You have built real momentum this week. Protect it before ${focusAreaInline} fades any further. ${sessionProgress}`,
+      adherenceText: `You have built real momentum over the last 7 days. Protect it before ${focusAreaInline} fades any further. ${sessionProgress}`,
       actionLabel: `Protect with ${recommendedFormat}`,
-      insightTitle: "How to protect this week",
-      insightText: `The map is broad, the week is moving, and ${focusAreaInline} is the first place likely to fade. ${recommendedFormat} is the best class to protect the week.`,
+      insightTitle: "How to protect your last 7 days",
+      insightText: `The map is broad, the last-7-days view is moving, and ${focusAreaInline} is the first place likely to fade. ${recommendedFormat} is the best class to protect that momentum.`,
     };
   }
 
   if (summary.momentumState === "cooling") {
     const isEarlyCooling = summary.coolingRisk === "early_cooling";
     return {
-      headline: "This week is slipping. Catch it now.",
+      headline: "Your last 7 days are slipping. Catch it now.",
       visualState: "risk",
       pill: isEarlyCooling ? "Cooling early" : "Cooling",
       adherenceTitle: `${focusAreaLabel} is starting to cool`,
-      adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class this week gets the week back on track while the save is still easy. ${sessionProgress}`,
+      adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class now gets the last-7-days view back on track while the save is still easy. ${sessionProgress}`,
       actionLabel: `Restore with ${recommendedFormat}`,
       insightTitle: isEarlyCooling ? "What is starting to cool" : "What is cooling now",
       insightText: isEarlyCooling
         ? `${focusAreaLabel} is slipping before the week is complete. ${sessionProgress} One ${recommendedFormat} class will widen the map again while the save is easy.`
-        : `${focusAreaLabel} is fading around ${focusAreaInline}, and the week is still short of target. ${recommendedFormat} is the fastest way to bring the week back into shape.`,
+        : `${focusAreaLabel} is fading around ${focusAreaInline}, and the last-7-days view is still short of target. ${recommendedFormat} is the fastest way to bring it back into shape.`,
     };
   }
 
   if (summary.momentumState === "slipping") {
     return {
-      headline: "This week is slipping. Catch it now.",
+      headline: "Your last 7 days are slipping. Catch it now.",
       visualState: "risk",
       pill: summary.coolingRisk === "dropoff_risk" ? "Ready to restart" : "Momentum slipping",
-      adherenceTitle: summary.coolingRisk === "dropoff_risk" ? "A single session restarts the map" : `${focusAreaLabel} is fading this week`,
+      adherenceTitle: summary.coolingRisk === "dropoff_risk" ? "A single session restarts the map" : `${focusAreaLabel} is fading now`,
       adherenceText:
         summary.coolingRisk === "dropoff_risk"
           ? `Your recent progress has mostly faded, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`
@@ -3369,8 +3352,8 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
       insightTitle: "What your body needs now",
       insightText:
         summary.coolingRisk === "dropoff_risk"
-          ? `The map has flattened around ${focusAreaInline}. One meaningful ${recommendedFormat} class will wake it back up and restart the week.`
-          : `${focusAreaLabel} is fading and the week is slipping. One ${recommendedFormat} class brings the map back before this turns into a reset.`,
+          ? `The map has flattened around ${focusAreaInline}. One meaningful ${recommendedFormat} class will wake it back up and restart the last-7-days view.`
+          : `${focusAreaLabel} is fading and the last-7-days view is slipping. One ${recommendedFormat} class brings the map back before this turns into a reset.`,
     };
   }
 
@@ -3379,23 +3362,23 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
       headline: "Momentum is building. Keep it going.",
       visualState: "progress",
       pill: "Getting going",
-      adherenceTitle: "Add one more session this week",
-      adherenceText: `You have started creating visible progress. Another ${recommendedFormat} workout this week will make the pattern easier to see. ${sessionProgress}`,
+      adherenceTitle: "Add one more session soon",
+      adherenceText: `You have started creating visible progress. Another ${recommendedFormat} workout in the next few days will make the pattern easier to see. ${sessionProgress}`,
       actionLabel: `Add ${recommendedFormat}`,
       insightTitle: "What changed today",
-      insightText: `${topZoneText} has started responding. One more ${recommendedFormat} workout this week will make the change more visible.`,
+      insightText: `${topZoneText} has started responding. One more ${recommendedFormat} workout soon will make the change more visible.`,
     };
   }
 
   return {
-    headline: "This week is slipping. Catch it now.",
+    headline: "Your last 7 days are slipping. Catch it now.",
     visualState: "risk",
     pill: "Ready to restart",
     adherenceTitle: "A single session restarts the map",
     adherenceText: `Your recent progress has mostly faded, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`,
     actionLabel: `Restart with ${recommendedFormat}`,
     insightTitle: "What your body needs now",
-    insightText: `The map has flattened, especially in ${focusAreaInline}. The easiest restart is one ${recommendedFormat} class this week.`,
+    insightText: `The map has flattened, especially in ${focusAreaInline}. The easiest restart is one ${recommendedFormat} class soon.`,
   };
 }
 
@@ -3477,35 +3460,35 @@ function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort, pulseSumma
 
   if (!latestWorkout) {
     if (pulseSummary.daysSinceLastWorkout === null) {
-      return "No workout yet this week.";
+      return "No workout yet in the last 7 days.";
     }
 
-    return `Last workout was ${lastWorkoutLabel}. This week needs a restart.`;
+    return `Last workout was ${lastWorkoutLabel}. The last-7-days view needs a restart.`;
   }
 
   const latestWorkoutLabel = `${formatWorkoutName(latestWorkout.format)} ${formatRelativeDayLabel(diffDays(state.currentDate, latestWorkout.dateObject))}`;
 
   if (pulseSummary.coolingRisk === "dropoff_risk") {
-    return `${latestWorkoutLabel}. Momentum has dropped off.`;
+    return `${latestWorkoutLabel}. Momentum has dropped off in the last 7 days.`;
   }
 
   if (pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "early_cooling") {
-    return `${latestWorkoutLabel}. This week is cooling.`;
+    return `${latestWorkoutLabel}. Your last-7-days view is cooling.`;
   }
 
   if (weekly.status === "above") {
-    return `${latestWorkoutLabel}. This week is above target.`;
+    return `${latestWorkoutLabel}. The last 7 days are above target.`;
   }
 
   if (weekly.status === "in_range") {
-    return `${latestWorkoutLabel}. This week is in target.`;
+    return `${latestWorkoutLabel}. The last 7 days are in target.`;
   }
 
   if (workoutEffort.key === "light") {
-    return `${latestWorkoutLabel}. Good start, but this week is still building.`;
+    return `${latestWorkoutLabel}. Good start, but the last 7 days are still building.`;
   }
 
-  return `${latestWorkoutLabel}. This week is moving, but still below target.`;
+  return `${latestWorkoutLabel}. The last 7 days are moving, but still below target.`;
 }
 
 function renderSupportPanel() {
@@ -3647,7 +3630,7 @@ function renderPulse() {
       })),
     );
     pulseHeadline.textContent = "Add a member to start Pulse";
-    pulseHeaderSubtext.textContent = "Create a member, set the goal, and Pulse will turn workouts into a weekly story.";
+    pulseHeaderSubtext.textContent = "Create a member, set the goal, and Pulse will turn workouts into a rolling 7-day story.";
     pulseMomentumPill.textContent = "Waiting";
     pulseCuroVisual.src = CURO_VISUAL_LIBRARY.default;
     pulseCardTop.classList.remove("is-progress", "is-positive", "is-risk");
@@ -3661,7 +3644,7 @@ function renderPulse() {
     miniLoadBoost.style.width = "0%";
     loadStatusBadge.textContent = "Waiting";
     loadStatusBadge.classList.remove("in-range", "above");
-    weeklyLoadNarrative.textContent = "Add a member and log a workout to start the weekly load view.";
+    weeklyLoadNarrative.textContent = "Add a member and log a workout to start the 7-day load view.";
     goalAdherenceTitle.textContent = "No adherence data";
     goalAdherenceText.textContent = "Add member | Log workout";
     adherenceSplitLabel.textContent = "--";
@@ -3683,48 +3666,49 @@ function renderPulse() {
   const goal = getGoalConfig();
   const program = generateWeeklyProgram();
   const workouts = getScenarioWorkouts();
-  const weekly = getWeeklyLoadSummary();
+  const weekly = getWeeklyLoadSummary(state.currentDate);
+  const previousRollingWeek = getWeeklyLoadSummary(addDays(state.currentDate, -7));
   const pulseSummary = getPulseSummary();
   const sixWeekJourney = getSixWeekJourney(state.currentDate, state.selectedUserId);
-  const currentCalendarWeek = getCalendarWeekSummary(state.currentDate, 0);
-  const previousCalendarWeek = getCalendarWeekSummary(state.currentDate, -1);
-  const currentJourneyWeek = getJourneyWeekSummary(state.currentDate, 0, state.selectedUserId);
-  const previousJourneyWeek = getJourneyWeekSummary(state.currentDate, -1, state.selectedUserId);
   const bodyResponse = getBodyResponseCopy(pulseSummary);
   const nextPlannedWorkout = getNextPlannedWorkout(state.profile, state.currentDate);
+  const pulseActionSummary = {
+    ...pulseSummary,
+    recommendedFormat: nextPlannedWorkout.format || pulseSummary.recommendedFormat || DEFAULT_HRX_FORMAT,
+  };
   const latestWorkout = getLatestCompletedWorkout(workouts);
   const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
   const defaultNarrative = getPulseNarrative(
-    pulseSummary,
-    currentJourneyWeek,
+    pulseActionSummary,
+    weekly,
     goal,
     Number(state.profile.frequency),
     workouts.length,
   );
   const weekTransitionNarrative = getWeekTransitionNarrative(
-    currentJourneyWeek,
-    previousJourneyWeek,
-    pulseSummary.recommendedFormat || DEFAULT_HRX_FORMAT,
+    weekly,
+    previousRollingWeek,
+    pulseActionSummary.recommendedFormat || DEFAULT_HRX_FORMAT,
     state.currentDate,
   );
   const narrative = weekTransitionNarrative || defaultNarrative;
   const adherence = getGoalAdherenceCopy(
-    pulseSummary,
-    currentCalendarWeek,
+    pulseActionSummary,
+    weekly,
     goal,
     Number(state.profile.frequency),
     program,
   );
   const isRecoveryAction =
-    adherence.actionLabel === "Recover" && currentCalendarWeek.sessions >= Number(state.profile.frequency);
+    adherence.actionLabel === "Recover" && weekly.sessions >= Number(state.profile.frequency);
   const latestWorkoutInWindow = weekly.latestWorkout;
   const previousWeeklyTotal = roundLoad(
     Math.max(0, weekly.total - (latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0)),
   );
   const plannedSessions = Number(state.profile.frequency);
   const headerDiagnostics = getPulseHeaderDiagnostics(
-    pulseSummary,
-    currentJourneyWeek,
+    pulseActionSummary,
+    weekly,
     plannedSessions,
     workouts.length,
   );
@@ -3734,9 +3718,9 @@ function renderPulse() {
   renderPulseWeekDots(sixWeekJourney);
   pulseHeadline.textContent = narrative.headline;
   pulseHeaderSubtext.textContent = getPulseHeaderSubtext(
-    pulseSummary,
-    currentJourneyWeek,
-    previousJourneyWeek,
+    pulseActionSummary,
+    weekly,
+    previousRollingWeek,
     workouts.length,
     state.currentDate,
   );
@@ -3782,7 +3766,7 @@ function renderPulse() {
   goalAdherenceText.textContent = adherence.text;
   adherenceSplitLabel.textContent = adherence.split;
   adherenceProgressLabel.textContent = adherence.progress;
-  renderAdherenceProgressDots(currentCalendarWeek.sessions, Number(state.profile.frequency));
+  renderAdherenceProgressDots(weekly.sessions, Number(state.profile.frequency));
   primaryAction.textContent =
     isRecoveryAction
       ? "Recover"
