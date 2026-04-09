@@ -125,7 +125,6 @@
 
                 <div class="goal-actions">
                   <button id="goalBackButton" class="ghost-button" type="button">Back</button>
-                  <button id="goalNextButton" class="primary-button" type="button">Next</button>
                 </div>
               </section>
 
@@ -199,44 +198,71 @@
                     role="img"
                     aria-label="Body map showing activated muscle groups"
                   >
-                    <img
-                      class="body-reference body-reference-base"
-                      id="bodyReferenceBase"
-                      src="../99 Current Body Map Images/template_body.png"
-                      alt=""
-                    />
-                    <img
-                      class="body-reference body-reference-overlay"
-                      data-asset-zone="shoulders"
-                      src="../99 Current Body Map Images/shoulders_body.png"
-                      alt=""
-                    />
-                    <img
-                      class="body-reference body-reference-overlay"
-                      data-asset-zone="arms"
-                      src="../99 Current Body Map Images/arms_body.png"
-                      alt=""
-                    />
-                    <img
-                      class="body-reference body-reference-overlay"
-                      data-asset-zone="chest"
-                      src="../99 Current Body Map Images/chest_body.png"
-                      alt=""
-                    />
-                    <img
-                      class="body-reference body-reference-overlay"
-                      data-asset-zone="back"
-                      src="../99 Current Body Map Images/back_body.png"
-                      alt=""
-                    />
-                    <img
-                      class="body-reference body-reference-overlay"
-                      data-asset-zone="legs"
-                      src="../99 Current Body Map Images/legs_body.png"
-                      alt=""
-                    />
-                    <div class="body-hotspot body-hotspot-core" data-hotspot="core"></div>
-                    <div class="body-hotspot body-hotspot-cardio" data-hotspot="cardio"></div>
+                    <div class="body-map-stage" aria-hidden="true">
+                      <div class="body-figure body-figure-front">
+                        <img
+                          class="body-reference body-reference-base"
+                          src="../99 Isolated muscle group SVGs/front-base.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-front-shoulders"
+                          data-asset-zone="shoulders"
+                          src="../99 Isolated muscle group SVGs/front-shoulder.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-front-arms"
+                          data-asset-zone="arms"
+                          src="../99 Isolated muscle group SVGs/front-arms.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-front-chest"
+                          data-asset-zone="chest"
+                          src="../99 Isolated muscle group SVGs/front-chest.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-front-legs"
+                          data-asset-zone="legs"
+                          src="../99 Isolated muscle group SVGs/front-legs.svg"
+                          alt=""
+                        />
+                      </div>
+
+                      <div class="body-figure body-figure-back">
+                        <img
+                          class="body-reference body-reference-base"
+                          src="../99 Isolated muscle group SVGs/back-base.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-back-shoulders"
+                          data-asset-zone="shoulders"
+                          src="../99 Isolated muscle group SVGs/back-shoulder.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-back-arms"
+                          data-asset-zone="arms"
+                          src="../99 Isolated muscle group SVGs/back-arms.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-back-back"
+                          data-asset-zone="back"
+                          src="../99 Isolated muscle group SVGs/back-back.svg"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay body-reference-overlay-back-legs"
+                          data-asset-zone="legs"
+                          src="../99 Isolated muscle group SVGs/back-legs.svg"
+                          alt=""
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -8,9 +8,21 @@ Static hackathon prototype for the Cult Pulse concept.
 - `styles.css`: visual system and responsive styling
 - `app.js`: mock data, pulse/decay logic, rolling training load, baseline comparison, and Curo copy
 
-## Run
+## Run locally on port 3000
 
-Open [index.html](/Users/nikhil.kulkarni/Desktop/Work/96 Hackathon/cult-pulse-demo/index.html) directly in a browser.
+From the repo root at [pulse_hackathon26](/Users/nikhil.kulkarni/Desktop/Work/96%20Hackathon/pulse_hackathon26):
+
+```bash
+npm start
+```
+
+Then open:
+
+```text
+http://localhost:3000
+```
+
+The server redirects to the mockup entry at `/01%20Mockup/` so the current asset paths continue to work unchanged.
 
 ## Demo actions
 

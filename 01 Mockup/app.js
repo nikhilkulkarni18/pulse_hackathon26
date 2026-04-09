@@ -350,7 +350,6 @@ const goalStepCount = document.getElementById("goalStepCount");
 const goalStepDescription = document.getElementById("goalStepDescription");
 const goalStepContent = document.getElementById("goalStepContent");
 const goalBackButton = document.getElementById("goalBackButton");
-const goalNextButton = document.getElementById("goalNextButton");
 const planEmptyState = document.getElementById("planEmptyState");
 const planSummary = document.getElementById("planSummary");
 const setupPreviewTitle = document.getElementById("setupPreviewTitle");
@@ -380,11 +379,7 @@ const adherenceSplitLabel = document.getElementById("adherenceSplitLabel");
 const adherenceProgressDots = document.getElementById("adherenceProgressDots");
 const adherenceProgressLabel = document.getElementById("adherenceProgressLabel");
 const primaryAction = document.getElementById("primaryAction");
-const bodyReferenceBase = document.getElementById("bodyReferenceBase");
 const bodyReferenceNodes = [...document.querySelectorAll("[data-asset-zone]")];
-const hotspotNodes = [...document.querySelectorAll("[data-hotspot]")];
-let bodyReferenceOverlaysReady = false;
-const bodyAssetPreparation = prepareBodyReferenceOverlays();
 
 const CURO_VISUAL_LIBRARY = {
   default: "../99 curo images/Meet.png",
@@ -788,98 +783,6 @@ function getWorkoutDateObject(workout, index = 0) {
   }
 
   return new Date(TODAY.getTime() + (index * 60 * 1000));
-}
-
-function loadImage(source) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Failed to load image: ${source}`));
-    image.src = source;
-  });
-}
-
-function extractOverlayMask(baseImage, overlayImage) {
-  const width = baseImage.naturalWidth || baseImage.width;
-  const height = baseImage.naturalHeight || baseImage.height;
-  const bodyRegion = {
-    left: width * 0.16,
-    right: width * 0.84,
-    top: height * 0.18,
-    bottom: height * 0.76,
-  };
-  const baseCanvas = document.createElement("canvas");
-  const overlayCanvas = document.createElement("canvas");
-  baseCanvas.width = overlayCanvas.width = width;
-  baseCanvas.height = overlayCanvas.height = height;
-
-  const baseContext = baseCanvas.getContext("2d", { willReadFrequently: true });
-  const overlayContext = overlayCanvas.getContext("2d", { willReadFrequently: true });
-  baseContext.drawImage(baseImage, 0, 0, width, height);
-  overlayContext.drawImage(overlayImage, 0, 0, width, height);
-
-  const basePixels = baseContext.getImageData(0, 0, width, height);
-  const overlayPixels = overlayContext.getImageData(0, 0, width, height);
-  const outputPixels = overlayContext.createImageData(width, height);
-
-  for (let index = 0; index < overlayPixels.data.length; index += 4) {
-    const pixelNumber = index / 4;
-    const x = pixelNumber % width;
-    const y = Math.floor(pixelNumber / width);
-
-    if (x < bodyRegion.left || x > bodyRegion.right || y < bodyRegion.top || y > bodyRegion.bottom) {
-      continue;
-    }
-
-    const baseR = basePixels.data[index];
-    const baseG = basePixels.data[index + 1];
-    const baseB = basePixels.data[index + 2];
-    const overlayR = overlayPixels.data[index];
-    const overlayG = overlayPixels.data[index + 1];
-    const overlayB = overlayPixels.data[index + 2];
-
-    const diff =
-      Math.abs(overlayR - baseR) + Math.abs(overlayG - baseG) + Math.abs(overlayB - baseB);
-    const greenDominance = overlayG - Math.max(overlayR, overlayB);
-    const brightnessGain =
-      (overlayR + overlayG + overlayB) / 3 - (baseR + baseG + baseB) / 3;
-
-    if (diff < 70 || (greenDominance < 14 && brightnessGain < 26)) {
-      continue;
-    }
-
-    const maskStrength = clamp((diff - 70) / 150, 0, 1);
-    const alpha = Math.round(255 * Math.max(maskStrength, clamp((greenDominance + brightnessGain) / 140, 0, 1)));
-
-    outputPixels.data[index] = overlayR;
-    outputPixels.data[index + 1] = overlayG;
-    outputPixels.data[index + 2] = overlayB;
-    outputPixels.data[index + 3] = alpha;
-  }
-
-  overlayContext.clearRect(0, 0, width, height);
-  overlayContext.putImageData(outputPixels, 0, 0);
-  return overlayCanvas.toDataURL("image/png");
-}
-
-async function prepareBodyReferenceOverlays() {
-  if (!bodyReferenceBase || !bodyReferenceNodes.length) {
-    return;
-  }
-
-  try {
-    const baseImage = await loadImage(bodyReferenceBase.src);
-    await Promise.all(
-      bodyReferenceNodes.map(async (node) => {
-        const overlayImage = await loadImage(node.src);
-        node.src = extractOverlayMask(baseImage, overlayImage);
-      }),
-    );
-    bodyReferenceOverlaysReady = true;
-    renderPulse();
-  } catch (error) {
-    console.warn("Could not prepare body reference overlays.", error);
-  }
 }
 
 function getGoalConfigForProfile(profile) {
@@ -1535,6 +1438,21 @@ function markPlanDirty() {
   state.planCreated = false;
 }
 
+function handleGoalStepSelection(updateProfile) {
+  updateProfile();
+  syncSplitPreference();
+  markPlanDirty();
+
+  const steps = getGoalSteps();
+  if (state.goalStep < steps.length - 1) {
+    state.goalStep += 1;
+  } else {
+    state.planCreated = true;
+  }
+
+  renderAll();
+}
+
 function renderTabs() {
   tabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.tabTarget === state.activeTab);
@@ -1791,10 +1709,9 @@ function renderGoalStepContent() {
     const grid = document.createElement("div");
     grid.className = "choice-grid";
     renderChoiceGrid(grid, GOAL_LIBRARY, state.profile.goal, (goalKey) => {
-      state.profile.goal = goalKey;
-      syncSplitPreference();
-      markPlanDirty();
-      renderAll();
+      handleGoalStepSelection(() => {
+        state.profile.goal = goalKey;
+      });
     });
     goalStepContent.appendChild(grid);
   }
@@ -1803,10 +1720,9 @@ function renderGoalStepContent() {
     const grid = document.createElement("div");
     grid.className = "choice-grid";
     renderChoiceGrid(grid, LEVEL_LIBRARY, state.profile.startingPoint, (startingPointKey) => {
-      state.profile.startingPoint = startingPointKey;
-      syncSplitPreference();
-      markPlanDirty();
-      renderAll();
+      handleGoalStepSelection(() => {
+        state.profile.startingPoint = startingPointKey;
+      });
     });
     goalStepContent.appendChild(grid);
   }
@@ -1815,10 +1731,9 @@ function renderGoalStepContent() {
     const grid = document.createElement("div");
     grid.className = "segmented-grid";
     renderChoiceGrid(grid, FREQUENCY_LIBRARY, state.profile.frequency, (frequencyKey) => {
-      state.profile.frequency = frequencyKey;
-      syncSplitPreference();
-      markPlanDirty();
-      renderAll();
+      handleGoalStepSelection(() => {
+        state.profile.frequency = frequencyKey;
+      });
     }, "segmented-button");
     goalStepContent.appendChild(grid);
   }
@@ -1827,10 +1742,9 @@ function renderGoalStepContent() {
     const grid = document.createElement("div");
     grid.className = "choice-grid";
     renderChoiceGrid(grid, SPLIT_LIBRARY, getResolvedSplitPreference(state.profile), (splitKey) => {
-      state.profile.splitPreference = splitKey;
-      syncSplitPreference();
-      markPlanDirty();
-      renderAll();
+      handleGoalStepSelection(() => {
+        state.profile.splitPreference = splitKey;
+      });
     });
     goalStepContent.appendChild(grid);
 
@@ -1875,8 +1789,6 @@ function renderGoal() {
     renderGoalPlan();
     goalBackButton.disabled = true;
     goalBackButton.style.visibility = "hidden";
-    goalNextButton.disabled = true;
-    goalNextButton.textContent = "Next";
     return;
   }
 
@@ -1892,13 +1804,6 @@ function renderGoal() {
 
   goalBackButton.disabled = state.goalStep === 0;
   goalBackButton.style.visibility = state.goalStep === 0 ? "hidden" : "visible";
-
-  if (state.goalStep === steps.length - 1) {
-    goalNextButton.textContent = "Create my plan";
-  } else {
-    goalNextButton.textContent = "Next";
-  }
-  goalNextButton.disabled = false;
 }
 
 function getPulseNarrative(summary, weekly, goal, plannedSessions, totalWorkouts = 0) {
@@ -2132,17 +2037,7 @@ function renderPulseMap(pulseStates) {
   bodyReferenceNodes.forEach((node) => {
     const score = assetScores[node.dataset.assetZone] || 0;
     node.style.setProperty("--zone-score", score.toFixed(3));
-    if (!bodyReferenceOverlaysReady) {
-      node.style.opacity = "0";
-      return;
-    }
     node.style.opacity = `${clamp(Math.pow(score, 0.9) * 0.98, 0, 0.98)}`;
-  });
-
-  hotspotNodes.forEach((node) => {
-    const score = pulseStates[node.dataset.hotspot]?.activation || 0;
-    node.style.opacity = `${clamp(score * 0.8, 0.04, 0.78)}`;
-    node.style.transform = `scale(${1 + clamp(score * 0.14, 0, 0.2)})`;
   });
 }
 
@@ -2362,20 +2257,6 @@ goalBackButton.addEventListener("click", () => {
     state.goalStep -= 1;
     renderAll();
   }
-});
-
-goalNextButton.addEventListener("click", () => {
-  const steps = getGoalSteps();
-
-  if (state.goalStep < steps.length - 1) {
-    state.goalStep += 1;
-    renderAll();
-    return;
-  }
-
-  syncSplitPreference();
-  state.planCreated = true;
-  renderAll();
 });
 
 viewPulseFromPlan.addEventListener("click", () => {

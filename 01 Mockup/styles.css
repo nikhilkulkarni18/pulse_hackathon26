@@ -886,6 +886,34 @@ h3 {
     linear-gradient(180deg, rgba(7, 16, 32, 0.98), rgba(6, 18, 34, 0.98));
 }
 
+.body-map-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.6rem, 6vw, 3.6rem);
+  padding: 1.4rem 1.6rem;
+}
+
+.body-figure {
+  position: relative;
+  flex: 0 0 auto;
+  height: min(320px, 82%);
+  overflow: hidden;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.22));
+}
+
+.body-figure-front {
+  aspect-ratio: 92 / 280;
+  width: auto;
+}
+
+.body-figure-back {
+  aspect-ratio: 103 / 280;
+  width: auto;
+}
+
 .body-reference {
   position: absolute;
   inset: 0;
@@ -902,6 +930,7 @@ h3 {
 }
 
 .body-reference-overlay {
+  inset: auto;
   opacity: 0;
   transition: opacity 280ms ease;
   mix-blend-mode: screen;
@@ -910,32 +939,62 @@ h3 {
     brightness(calc(0.88 + (var(--zone-score, 0) * 0.4)))
     drop-shadow(0 0 calc(6px + (var(--zone-score, 0) * 16px)) rgba(120, 255, 205, 0.55))
     drop-shadow(0 0 calc(12px + (var(--zone-score, 0) * 24px)) rgba(120, 255, 205, 0.28));
-  transform: scale(calc(1 + (var(--zone-score, 0) * 0.012)));
 }
 
-.body-hotspot {
-  position: absolute;
-  border-radius: 999px;
-  opacity: 0;
-  transition: opacity 280ms ease, transform 280ms ease;
-  mix-blend-mode: screen;
-  filter: blur(18px);
+.body-reference-overlay-front-shoulders {
+  left: 4.09%;
+  top: 18.46%;
+  width: 92.39%;
+  height: 8.21%;
 }
 
-.body-hotspot-core {
-  left: 38%;
-  top: 34%;
-  width: 24%;
-  height: 20%;
-  background: radial-gradient(circle, rgba(116, 232, 255, 0.7), rgba(116, 232, 255, 0));
+.body-reference-overlay-front-arms {
+  left: 2.18%;
+  top: 26.52%;
+  width: 96.74%;
+  height: 25.36%;
 }
 
-.body-hotspot-cardio {
-  left: 24%;
-  top: 18%;
-  width: 52%;
-  height: 36%;
-  background: radial-gradient(circle, rgba(255, 125, 107, 0.55), rgba(255, 125, 107, 0));
+.body-reference-overlay-front-chest {
+  left: 15.36%;
+  top: 19.57%;
+  width: 70.65%;
+  height: 8.93%;
+}
+
+.body-reference-overlay-front-legs {
+  left: 15.36%;
+  top: 45.45%;
+  width: 70.65%;
+  height: 48.93%;
+}
+
+.body-reference-overlay-back-shoulders {
+  left: 8.94%;
+  top: 18.36%;
+  width: 82.52%;
+  height: 8.21%;
+}
+
+.body-reference-overlay-back-arms {
+  left: 0;
+  top: 24.2%;
+  width: 100%;
+  height: 26.79%;
+}
+
+.body-reference-overlay-back-back {
+  left: 17.47%;
+  top: 9.68%;
+  width: 66.02%;
+  height: 32.86%;
+}
+
+.body-reference-overlay-back-legs {
+  left: 18.02%;
+  top: 43.29%;
+  width: 65.05%;
+  height: 42.86%;
 }
 
 .pulse-side-column {
@@ -1147,5 +1206,14 @@ h3 {
 
   .reference-map {
     min-height: 380px;
+  }
+
+  .body-map-stage {
+    gap: 1rem;
+    padding: 1.2rem 0.9rem;
+  }
+
+  .body-figure {
+    height: min(290px, 78%);
   }
 }
