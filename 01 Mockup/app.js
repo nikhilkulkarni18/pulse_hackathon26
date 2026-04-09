@@ -1,6 +1,8 @@
 const TODAY = new Date("2026-04-09T18:30:00");
 const DAY_MS = 24 * 60 * 60 * 1000;
-const LOAD_MAX = 30;
+const LOAD_MAX = 36;
+const ROLLING_LOAD_DAYS = 7;
+const BASELINE_LOAD_DAYS = 28;
 const BODY_MAP_VISIBLE_THRESHOLD = 0.3;
 const TOP_ZONE_THRESHOLD = 0.12;
 const POSITIVE_SLOPE_THRESHOLD = 0.04;
@@ -46,19 +48,16 @@ const LEVEL_LIBRARY = {
     label: "First time / little recent training",
     description: "Keep the first week simple and build confidence fast.",
     modifier: -3,
-    titleTag: "Starter",
   },
   restarting: {
     label: "Restarting after a break",
     description: "Get the rhythm back before pushing intensity again.",
     modifier: -1,
-    titleTag: "Comeback",
   },
   regular: {
     label: "Already working out regularly",
     description: "Use a little more structure and a higher target zone.",
     modifier: 2,
-    titleTag: "Momentum",
   },
 };
 
@@ -88,9 +87,62 @@ const SUPPORT_LIBRARY = {
   },
 };
 
+const TARGET_STATUS_LABELS = {
+  below: "Below target",
+  in_range: "In target",
+  above: "Above target",
+};
+
+const RELATIVE_STATE_LABELS = {
+  well_below: "Well below usual",
+  below: "Below usual",
+  in_range: "In line with usual",
+  above: "Above usual",
+  well_above: "Well above usual",
+  building: "Building your rhythm",
+};
+
+const EFFORT_BAND_LIBRARY = [
+  {
+    key: "light",
+    maxLoad: 4.49,
+    label: "Light",
+    headline: "Light effort",
+    description: "A lighter session that keeps your rhythm going.",
+    className: "is-light",
+  },
+  {
+    key: "moderate",
+    maxLoad: 6.24,
+    label: "Moderate",
+    headline: "Moderate effort",
+    description: "A solid session that moves the week forward.",
+    className: "is-moderate",
+  },
+  {
+    key: "high",
+    maxLoad: 7.74,
+    label: "High",
+    headline: "High effort",
+    description: "A strong push that meaningfully builds momentum.",
+    className: "is-high",
+  },
+  {
+    key: "very_high",
+    maxLoad: Number.POSITIVE_INFINITY,
+    label: "Very high",
+    headline: "Very high effort",
+    description: "A very demanding session. Recovery matters before the next hard push.",
+    className: "is-very-high",
+  },
+];
+
 const FORMAT_LIBRARY = {
   Yoga: {
     intensity: 3,
+    defaultDurationMinutes: 45,
+    modalityFactor: 1.02,
+    defaultEffortFactor: 0.08,
     zoneWeights: {
       hamstrings: 0.95,
       core: 0.75,
@@ -101,6 +153,9 @@ const FORMAT_LIBRARY = {
   },
   Boxing: {
     intensity: 7,
+    defaultDurationMinutes: 45,
+    modalityFactor: 1.06,
+    defaultEffortFactor: 0.12,
     zoneWeights: {
       shoulders: 1,
       arms: 0.95,
@@ -112,6 +167,9 @@ const FORMAT_LIBRARY = {
   },
   HRX: {
     intensity: 8,
+    defaultDurationMinutes: 50,
+    modalityFactor: 1.12,
+    defaultEffortFactor: 0.13,
     zoneWeights: {
       quads: 1,
       glutes: 0.85,
@@ -124,6 +182,9 @@ const FORMAT_LIBRARY = {
   },
   "Strength & Conditioning": {
     intensity: 7,
+    defaultDurationMinutes: 50,
+    modalityFactor: 1.17,
+    defaultEffortFactor: 0.11,
     zoneWeights: {
       back: 0.8,
       glutes: 0.75,
@@ -135,6 +196,9 @@ const FORMAT_LIBRARY = {
   },
   Burn: {
     intensity: 6,
+    defaultDurationMinutes: 45,
+    modalityFactor: 1.08,
+    defaultEffortFactor: 0.11,
     zoneWeights: {
       quads: 0.9,
       glutes: 0.8,
@@ -213,137 +277,123 @@ const AREA_GROUPS = {
   core: { label: "Core activation", inline: "core", zones: ["core"] },
 };
 
-const PROFILE_MODES = {
-  new_user: {
-    label: "New user",
-    description: "Starts with goal setup and very little history.",
+const STORAGE_KEY = "cult-pulse-demo-user-progress-v1";
+
+const USER_LIBRARY = {
+  aisha: {
+    label: "Aisha Rao",
+    description: "Weight-loss member rebuilding her weekly rhythm.",
     profile: {
       name: "Aisha Rao",
+      goal: "weight_loss",
+      frequency: "4",
+      startingPoint: "restarting",
+      splitPreference: "upper_lower",
+    },
+    planCreated: true,
+    defaultWorkoutStep: 2,
+    workouts: [
+      { date: "2026-03-29", format: "Yoga", durationMinutes: 45, source: "cult_class" },
+      {
+        date: "2026-04-02",
+        format: "Boxing",
+        durationMinutes: 44,
+        source: "apple_health",
+        effortRating: 7,
+      },
+      {
+        date: "2026-04-06",
+        format: "HRX",
+        durationMinutes: 50,
+        source: "health_connect",
+        effortRating: 8,
+        heartRateSummary: {
+          avgBpm: 159,
+          maxBpm: 184,
+          zoneMinutes: { zone1: 2, zone2: 5, zone3: 15, zone4: 19, zone5: 9 },
+        },
+      },
+      { date: "2026-04-08", format: "Yoga", durationMinutes: 48, source: "cult_class" },
+      {
+        date: "2026-04-09",
+        format: "Boxing",
+        durationMinutes: 45,
+        source: "apple_health",
+        effortRating: 7,
+        heartRateSummary: {
+          avgBpm: 152,
+          maxBpm: 178,
+          zoneMinutes: { zone1: 3, zone2: 7, zone3: 18, zone4: 13, zone5: 4 },
+        },
+      },
+    ],
+  },
+  rohan: {
+    label: "Rohan Singh",
+    description: "Strength user layering volume across the week.",
+    profile: {
+      name: "Rohan Singh",
+      goal: "strength",
+      frequency: "5",
+      startingPoint: "regular",
+      splitPreference: "two_muscles",
+    },
+    planCreated: true,
+    defaultWorkoutStep: 3,
+    workouts: [
+      {
+        date: "2026-03-24",
+        format: "Strength & Conditioning",
+        durationMinutes: 50,
+        source: "health_connect",
+        effortRating: 7,
+      },
+      { date: "2026-03-29", format: "Burn", durationMinutes: 45, source: "cult_class" },
+      {
+        date: "2026-04-03",
+        format: "Strength & Conditioning",
+        durationMinutes: 52,
+        source: "apple_health",
+        effortRating: 8,
+      },
+      {
+        date: "2026-04-07",
+        format: "HRX",
+        durationMinutes: 50,
+        source: "health_connect",
+        effortRating: 8,
+        heartRateSummary: {
+          avgBpm: 158,
+          maxBpm: 183,
+          zoneMinutes: { zone1: 1, zone2: 6, zone3: 14, zone4: 18, zone5: 11 },
+        },
+      },
+      { date: "2026-04-09", format: "Yoga", durationMinutes: 45, source: "cult_class" },
+    ],
+  },
+  meera: {
+    label: "Meera Iyer",
+    description: "General-fitness beginner easing into a repeatable routine.",
+    profile: {
+      name: "Meera Iyer",
       goal: "general_fitness",
       frequency: "3",
       startingPoint: "beginner",
       splitPreference: "full_body",
     },
     planCreated: false,
-  },
-  existing_user: {
-    label: "Existing user",
-    description: "Has training history and already knows the routine.",
-    profile: {
-      name: "Aisha Rao",
-      goal: "weight_loss",
-      frequency: "4",
-      startingPoint: "regular",
-      splitPreference: "upper_lower",
-    },
-    planCreated: true,
-  },
-};
-
-const BEHAVIOR_SCENARIOS = {
-  first_workout: {
-    label: "After first workout",
-    description: "New member just finished the first session and needs encouragement plus a next step.",
-    workouts: [{ date: "2026-04-09", format: "Yoga" }],
-    action: "Plan next session",
-    pulse: {
-      headline: "A strong start. Now turn it into a rhythm.",
-      momentum: "First week starting",
-      adherenceTitle: "One more session helps the habit stick",
-      adherenceText: "This is the moment to build rhythm, not chase intensity. One more class this week will help the routine settle in.",
-      insightTitle: "What changed today",
-      insightText: "That first session woke up mobility, core stability, and recovery work. The best next move is simply to repeat the behavior once more before the week ends.",
-    },
-  },
-  building: {
-    label: "Building this week",
-    description: "Existing user has some momentum this week but is still one session short of the target zone.",
+    defaultWorkoutStep: 1,
     workouts: [
-      { date: "2026-04-07", format: "Boxing" },
-      { date: "2026-04-08", format: "Yoga" },
+      { date: "2026-04-04", format: "Yoga", durationMinutes: 45, source: "cult_class" },
+      { date: "2026-04-07", format: "Burn", durationMinutes: 42, source: "cult_class" },
+      {
+        date: "2026-04-09",
+        format: "Boxing",
+        durationMinutes: 43,
+        source: "apple_health",
+        effortRating: 6,
+      },
     ],
-    action: "Book next session",
-    pulse: {
-      headline: "You are close to your target this week",
-      momentum: "Momentum building",
-      adherenceTitle: "One more class gets you back into range",
-      adherenceText: "You are building momentum, but this week still needs one strong session to feel complete.",
-      insightTitle: "What changed today",
-      insightText: "Your recent work is already building useful momentum across the lower body, shoulders, and cardio. One HRX or Boxing class would turn this from a good week into a complete one.",
-    },
-  },
-  consistent: {
-    label: "On track this week",
-    description: "User has stayed consistent and is comfortably inside the target zone.",
-    workouts: [
-      { date: "2026-04-06", format: "Burn" },
-      { date: "2026-04-07", format: "Boxing" },
-      { date: "2026-04-08", format: "Yoga" },
-      { date: "2026-04-09", format: "HRX" },
-    ],
-    action: "Keep momentum going",
-    pulse: {
-      headline: "You are right where you need to be this week",
-      momentum: "On track",
-      adherenceTitle: "This week is already in range",
-      adherenceText: "The focus has shifted from catching up to maintaining rhythm and recovering well enough to repeat it next week.",
-      insightTitle: "What changed today",
-      insightText: "This is what consistency looks like. Your load is inside target, the body map is broad, and you are building momentum without having to overreach.",
-    },
-  },
-  losing: {
-    label: "Losing momentum",
-    description: "The week started well but the user has slowed down and momentum is fading.",
-    workouts: [
-      { date: "2026-03-31", format: "Burn" },
-      { date: "2026-04-01", format: "Strength & Conditioning" },
-      { date: "2026-04-03", format: "Yoga" },
-    ],
-    action: "Restart this week",
-    pulse: {
-      headline: "The week has started to cool off",
-      momentum: "Momentum fading",
-      adherenceTitle: "You still have time to bring this week back",
-      adherenceText: "The earlier sessions gave you a base, but the gap since then is starting to show in the Pulse.",
-      insightTitle: "What changed this week",
-      insightText: "The earlier sessions gave you a base, but the gap since then is starting to show. Cardio fades first, so one well-chosen class would restore the feeling of momentum quickly.",
-    },
-  },
-  dropped: {
-    label: "Dropped off",
-    description: "It has been almost two weeks since the last session, so the Pulse should feel cooler and lower-energy.",
-    workouts: [
-      { date: "2026-03-24", format: "Strength & Conditioning" },
-      { date: "2026-03-26", format: "Burn" },
-      { date: "2026-03-27", format: "Yoga" },
-    ],
-    action: "Come back this week",
-    pulse: {
-      headline: "Your Pulse has cooled down",
-      momentum: "Cooling off",
-      adherenceTitle: "A single comeback session restarts the curve",
-      adherenceText: "The goal here is not to chase the old week. It is simply to restart with one meaningful session.",
-      insightTitle: "What your body needs now",
-      insightText: "It has been long enough for the stronger signals to flatten out, especially cardio. One solid comeback session this week is enough to reverse that curve.",
-    },
-  },
-  returned: {
-    label: "Returned after a drop",
-    description: "User had a visible gap but has come back with a stronger class, so the view should feel hopeful.",
-    workouts: [
-      { date: "2026-03-24", format: "Strength & Conditioning" },
-      { date: "2026-03-27", format: "Yoga" },
-      { date: "2026-04-09", format: "HRX" },
-    ],
-    action: "Keep momentum going",
-    pulse: {
-      headline: "You are back, and the signal is waking up again",
-      momentum: "Back in motion",
-      adherenceTitle: "One more class helps lock the comeback in",
-      adherenceText: "Today’s session restarted the map. The next job is to repeat it once before the week ends.",
-      insightTitle: "What changed today",
-      insightText: "That return session hit the lower body, core, shoulders, and cardio together. The most important thing is not the score itself, it is that the body map is active again and momentum has restarted.",
-    },
   },
 };
 
@@ -370,20 +420,26 @@ const GOAL_STEP_LIBRARY = [
   },
 ];
 
+const DEFAULT_USER_ID = Object.keys(USER_LIBRARY)[0];
+const initialUserProgressMap = getInitialUserProgressMap();
+const initialSelectedProgress = initialUserProgressMap[DEFAULT_USER_ID];
+
 const state = {
   activeTab: "goal",
   currentDate: new Date(TODAY),
-  profileMode: "existing_user",
-  behavior: "building",
-  profile: cloneProfile("existing_user"),
-  planCreated: PROFILE_MODES.existing_user.planCreated,
-  goalStep: 0,
+  selectedUserId: DEFAULT_USER_ID,
+  userProgress: initialUserProgressMap,
+  currentWorkoutStep: initialSelectedProgress.workoutStep,
+  profile: { ...initialSelectedProgress.profile },
+  planCreated: initialSelectedProgress.planCreated,
+  goalStep: initialSelectedProgress.goalStep,
+  supportPanelOpen: false,
 };
 
 const tabButtons = [...document.querySelectorAll("[data-tab-target]")];
 const tabScreens = [...document.querySelectorAll("[data-tab]")];
-const profileModeOptions = document.getElementById("profileModeOptions");
-const behaviorOptions = document.getElementById("behaviorOptions");
+const userOptions = document.getElementById("userOptions");
+const workoutProgressOptions = document.getElementById("workoutProgressOptions");
 const currentDateLabel = document.getElementById("currentDateLabel");
 const welcomeTitle = document.getElementById("welcomeTitle");
 const memberName = document.getElementById("memberName");
@@ -391,7 +447,8 @@ const summaryGoal = document.getElementById("summaryGoal");
 const summaryScenario = document.getElementById("summaryScenario");
 const summaryRange = document.getElementById("summaryRange");
 const summaryLoad = document.getElementById("summaryLoad");
-const scenarioDescription = document.getElementById("scenarioDescription");
+const progressDescription = document.getElementById("progressDescription");
+const saveStatus = document.getElementById("saveStatus");
 const resetButton = document.getElementById("resetDemo");
 const goalStepper = document.getElementById("goalStepper");
 const goalStepTitle = document.getElementById("goalStepTitle");
@@ -405,25 +462,28 @@ const planSummary = document.getElementById("planSummary");
 const setupPreviewTitle = document.getElementById("setupPreviewTitle");
 const setupPreviewBody = document.getElementById("setupPreviewBody");
 const previewTargetRange = document.getElementById("previewTargetRange");
-const previewIntent = document.getElementById("previewIntent");
 const previewSplit = document.getElementById("previewSplit");
-const previewCadence = document.getElementById("previewCadence");
-const previewWeeklyStructure = document.getElementById("previewWeeklyStructure");
-const previewCuroSummary = document.getElementById("previewCuroSummary");
+const previewWeeklyPattern = document.getElementById("previewWeeklyPattern");
 const centerConsultNudge = document.getElementById("centerConsultNudge");
 const bcaNudge = document.getElementById("bcaNudge");
+const helpToggleButton = document.getElementById("helpToggleButton");
+const supportPanel = document.getElementById("supportPanel");
 const viewPulseFromPlan = document.getElementById("viewPulseFromPlan");
 const pulseHeadline = document.getElementById("pulseHeadline");
+const pulseEffortSummary = document.getElementById("pulseEffortSummary");
 const pulseMomentumPill = document.getElementById("pulseMomentumPill");
 const pulseLoadValue = document.getElementById("pulseLoadValue");
 const pulseLoadSubtext = document.getElementById("pulseLoadSubtext");
 const miniLoadTarget = document.getElementById("miniLoadTarget");
-const miniLoadFill = document.getElementById("miniLoadFill");
+const miniLoadPrevious = document.getElementById("miniLoadPrevious");
+const miniLoadBoost = document.getElementById("miniLoadBoost");
 const loadStatusBadge = document.getElementById("loadStatusBadge");
+const weeklyLoadNarrative = document.getElementById("weeklyLoadNarrative");
 const goalAdherenceTitle = document.getElementById("goalAdherenceTitle");
 const goalAdherenceText = document.getElementById("goalAdherenceText");
-const topZonesLabel = document.getElementById("topZonesLabel");
-const bodyCoverageLabel = document.getElementById("bodyCoverageLabel");
+const adherenceSplitLabel = document.getElementById("adherenceSplitLabel");
+const adherenceProgressDots = document.getElementById("adherenceProgressDots");
+const adherenceProgressLabel = document.getElementById("adherenceProgressLabel");
 const primaryAction = document.getElementById("primaryAction");
 const trainingInsightTitle = document.getElementById("trainingInsightTitle");
 const pulseCuroText = document.getElementById("pulseCuroText");
@@ -433,9 +493,145 @@ const hotspotNodes = [...document.querySelectorAll("[data-hotspot]")];
 let bodyReferenceOverlaysReady = false;
 const bodyAssetPreparation = prepareBodyReferenceOverlays();
 
-function cloneProfile(modeKey) {
-  const source = PROFILE_MODES[modeKey].profile;
+function cloneUserProfile(userId) {
+  const source = USER_LIBRARY[userId].profile;
   return { ...source };
+}
+
+function createUserProgress(userId) {
+  const user = USER_LIBRARY[userId];
+  return {
+    profile: cloneUserProfile(userId),
+    planCreated: user.planCreated,
+    goalStep: 0,
+    workoutStep: clamp(user.defaultWorkoutStep ?? user.workouts.length, 0, user.workouts.length),
+  };
+}
+
+function getDefaultUserProgressMap() {
+  return Object.fromEntries(
+    Object.keys(USER_LIBRARY).map((userId) => [userId, createUserProgress(userId)]),
+  );
+}
+
+function normalizeUserProgress(userId, storedProgress) {
+  const fallback = createUserProgress(userId);
+  const storedProfile = storedProgress?.profile || {};
+
+  return {
+    profile: {
+      name: typeof storedProfile.name === "string" && storedProfile.name.trim() ? storedProfile.name : fallback.profile.name,
+      goal: GOAL_LIBRARY[storedProfile.goal] ? storedProfile.goal : fallback.profile.goal,
+      frequency: FREQUENCY_LIBRARY[storedProfile.frequency] ? storedProfile.frequency : fallback.profile.frequency,
+      startingPoint: LEVEL_LIBRARY[storedProfile.startingPoint]
+        ? storedProfile.startingPoint
+        : fallback.profile.startingPoint,
+      splitPreference: SPLIT_LIBRARY[storedProfile.splitPreference]
+        ? storedProfile.splitPreference
+        : fallback.profile.splitPreference,
+    },
+    planCreated:
+      typeof storedProgress?.planCreated === "boolean" ? storedProgress.planCreated : fallback.planCreated,
+    goalStep: Number.isFinite(Number(storedProgress?.goalStep)) ? Number(storedProgress.goalStep) : fallback.goalStep,
+    workoutStep: clamp(
+      Number.isFinite(Number(storedProgress?.workoutStep)) ? Number(storedProgress.workoutStep) : fallback.workoutStep,
+      0,
+      USER_LIBRARY[userId].workouts.length,
+    ),
+  };
+}
+
+function getInitialUserProgressMap() {
+  const defaults = getDefaultUserProgressMap();
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return defaults;
+    }
+
+    const parsed = JSON.parse(stored);
+    return Object.fromEntries(
+      Object.keys(USER_LIBRARY).map((userId) => [userId, normalizeUserProgress(userId, parsed?.[userId])]),
+    );
+  } catch (error) {
+    console.warn("Could not read saved user progress.", error);
+    return defaults;
+  }
+}
+
+function saveUserProgressMap() {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.userProgress));
+  } catch (error) {
+    console.warn("Could not save user progress.", error);
+  }
+}
+
+function getSelectedUserConfig() {
+  return USER_LIBRARY[state.selectedUserId];
+}
+
+function getSelectedUserProgress() {
+  return state.userProgress[state.selectedUserId];
+}
+
+function getReferenceDateForWorkoutStep(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
+  const workouts = USER_LIBRARY[userId].workouts;
+  if (!workouts.length) {
+    return new Date(TODAY);
+  }
+
+  if (workoutStep <= 0) {
+    return addDays(new Date(`${workouts[0].date}T18:30:00`), -1);
+  }
+
+  const workout = workouts[clamp(workoutStep, 1, workouts.length) - 1];
+  return new Date(`${workout.date}T18:30:00`);
+}
+
+function syncCurrentUserToState() {
+  const progress = getSelectedUserProgress();
+  state.profile = { ...progress.profile };
+  state.planCreated = progress.planCreated;
+  state.goalStep = progress.goalStep;
+  state.currentWorkoutStep = clamp(progress.workoutStep, 0, getSelectedUserConfig().workouts.length);
+  syncSplitPreference();
+  clampGoalStep();
+  state.currentDate = getReferenceDateForWorkoutStep();
+}
+
+function syncStateToCurrentUser() {
+  state.userProgress[state.selectedUserId] = {
+    ...getSelectedUserProgress(),
+    profile: { ...state.profile },
+    planCreated: state.planCreated,
+    goalStep: state.goalStep,
+    workoutStep: state.currentWorkoutStep,
+  };
+  saveUserProgressMap();
+}
+
+function getProgressViewLabel(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
+  const totalWorkouts = USER_LIBRARY[userId].workouts.length;
+
+  if (workoutStep <= 0) {
+    return `Baseline before workouts`;
+  }
+
+  return `Workout ${workoutStep} of ${totalWorkouts}`;
+}
+
+function getCurrentWorkout(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
+  if (workoutStep <= 0) {
+    return null;
+  }
+
+  return USER_LIBRARY[userId].workouts[workoutStep - 1] || null;
+}
+
+function getNextWorkout(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
+  return USER_LIBRARY[userId].workouts[workoutStep] || null;
 }
 
 function shouldShowSplitStep(profile = state.profile) {
@@ -447,7 +643,7 @@ function getGoalSteps(profile = state.profile) {
 }
 
 function clampGoalStep() {
-  state.goalStep = Math.min(state.goalStep, getGoalSteps().length - 1);
+  state.goalStep = clamp(state.goalStep, 0, getGoalSteps().length - 1);
 }
 
 function getDefaultSplit(profile = state.profile) {
@@ -526,6 +722,15 @@ function diffDays(later, earlier) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function roundLoad(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function formatLoadValue(value) {
+  const rounded = roundLoad(value);
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
 }
 
 function formatFullDate(date) {
@@ -650,39 +855,249 @@ function getGoalConfig() {
 }
 
 function getScenarioConfig() {
-  return BEHAVIOR_SCENARIOS[state.behavior];
+  return getSelectedUserConfig();
+}
+
+function getRatingEffortFactor(rating) {
+  return clamp(0.05 + (rating / 10) * 0.1, 0.07, 0.16);
+}
+
+function getHeartRateEffortFactor(heartRateSummary) {
+  if (!heartRateSummary) {
+    return null;
+  }
+
+  const zoneWeights = {
+    zone1: 0.42,
+    zone2: 0.55,
+    zone3: 0.72,
+    zone4: 0.9,
+    zone5: 1.05,
+  };
+
+  let weightedZoneEffort = null;
+  const zoneMinutes = heartRateSummary.zoneMinutes;
+  if (zoneMinutes) {
+    const totalZoneMinutes = Object.values(zoneMinutes).reduce((sum, minutes) => sum + minutes, 0);
+    if (totalZoneMinutes > 0) {
+      const weightedZones = Object.entries(zoneMinutes).reduce((sum, [zone, minutes]) => {
+        return sum + minutes * (zoneWeights[zone] || 0.42);
+      }, 0);
+      weightedZoneEffort = clamp(0.045 + (weightedZones / totalZoneMinutes) * 0.095, 0.07, 0.17);
+    }
+  }
+
+  let averageHeartRateEffort = null;
+  if (heartRateSummary.avgBpm && heartRateSummary.maxBpm) {
+    const relativeHeartRate = clamp(heartRateSummary.avgBpm / heartRateSummary.maxBpm, 0.45, 0.95);
+    averageHeartRateEffort = clamp(0.045 + relativeHeartRate * 0.1, 0.07, 0.16);
+  }
+
+  if (weightedZoneEffort !== null && averageHeartRateEffort !== null) {
+    return (weightedZoneEffort * 0.65) + (averageHeartRateEffort * 0.35);
+  }
+
+  return weightedZoneEffort ?? averageHeartRateEffort;
+}
+
+function getMeasuredEffortFactor(workout, formatDetails) {
+  const heartRateEffort = getHeartRateEffortFactor(workout.heartRateSummary);
+  const ratingEffort =
+    typeof workout.effortRating === "number" ? getRatingEffortFactor(workout.effortRating) : null;
+
+  if (heartRateEffort === null && ratingEffort === null) {
+    return null;
+  }
+
+  const measuredEffort =
+    heartRateEffort !== null && ratingEffort !== null
+      ? (heartRateEffort * 0.7) + (ratingEffort * 0.3)
+      : heartRateEffort ?? ratingEffort;
+
+  return (measuredEffort * 0.8) + (formatDetails.defaultEffortFactor * 0.2);
+}
+
+function getLoadConfidence(workout, measuredEffortFactor) {
+  if (measuredEffortFactor !== null) {
+    return "measured";
+  }
+
+  if (workout.durationMinutes) {
+    return "estimated";
+  }
+
+  return "low_confidence";
+}
+
+function getWindowRange(referenceDate, windowDays, offsetDays = 0) {
+  const end = addDays(referenceDate, -offsetDays);
+  const start = addDays(end, -(windowDays - 1));
+  return { start, end };
+}
+
+function getRelativeLoadState(currentLoad, baselineLoad) {
+  if (baselineLoad <= 0) {
+    return "building";
+  }
+
+  const ratio = currentLoad / baselineLoad;
+  const delta = currentLoad - baselineLoad;
+
+  if (ratio <= 0.6 && delta <= -4) {
+    return "well_below";
+  }
+
+  if (ratio < 0.88 && delta <= -2) {
+    return "below";
+  }
+
+  if (ratio >= 1.45 && delta >= 5) {
+    return "well_above";
+  }
+
+  if (ratio > 1.15 && delta >= 2) {
+    return "above";
+  }
+
+  return "in_range";
+}
+
+function getConfidenceSummary(workouts) {
+  const counts = workouts.reduce(
+    (summary, workout) => {
+      summary[workout.loadConfidence] += 1;
+      return summary;
+    },
+    { measured: 0, estimated: 0, low_confidence: 0 },
+  );
+
+  if (counts.measured === workouts.length && workouts.length > 0) {
+    return "All measured";
+  }
+
+  if (counts.estimated === workouts.length && workouts.length > 0) {
+    return "All estimated";
+  }
+
+  const parts = [];
+  if (counts.measured) {
+    parts.push(`${counts.measured} measured`);
+  }
+  if (counts.estimated) {
+    parts.push(`${counts.estimated} estimated`);
+  }
+  if (counts.low_confidence) {
+    parts.push(`${counts.low_confidence} low confidence`);
+  }
+
+  return parts.join(" • ") || "No sessions yet";
+}
+
+function getLatestCompletedWorkout(workouts = getScenarioWorkouts(), referenceDate = state.currentDate) {
+  return workouts
+    .filter((workout) => workout.dateObject <= referenceDate)
+    .sort((a, b) => b.dateObject - a.dateObject)[0] || null;
+}
+
+function getEffortBand(sessionLoad = 0) {
+  return EFFORT_BAND_LIBRARY.find((band) => sessionLoad <= band.maxLoad) || EFFORT_BAND_LIBRARY[0];
+}
+
+function getWorkoutEffortSummary(workout, weekly) {
+  if (!workout) {
+    const fallbackBand = EFFORT_BAND_LIBRARY[0];
+    return {
+      ...fallbackBand,
+      guidance: "Log one workout to start building this week.",
+      workoutLabel: "No workout logged yet",
+    };
+  }
+
+  const band = getEffortBand(workout.sessionLoad);
+  const workoutLabel = `${workout.format} • ${workout.durationMinutes} min`;
+
+  if (weekly.status === "above") {
+    return {
+      ...band,
+      workoutLabel,
+      guidance: `${band.description} You are already above target for the week, so recovery should be the priority now.`,
+    };
+  }
+
+  if (weekly.status === "in_range") {
+    return {
+      ...band,
+      workoutLabel,
+      guidance: `${band.description} You are in the right zone for your goal this week.`,
+    };
+  }
+
+  if (band.key === "light") {
+    return {
+      ...band,
+      workoutLabel,
+      guidance: `${band.description} Good for consistency, but this week still needs one stronger push.`,
+    };
+  }
+
+  if (band.key === "moderate") {
+    return {
+      ...band,
+      workoutLabel,
+      guidance: `${band.description} One more moderate or high-effort session gets you closer to target.`,
+    };
+  }
+
+  return {
+    ...band,
+    workoutLabel,
+    guidance: `${band.description} This moved the week forward, but you still need one more meaningful session to get into range.`,
+  };
 }
 
 function getScenarioWorkouts() {
-  return getScenarioConfig().workouts.map((workout, index) => {
+  return getScenarioConfig().workouts.slice(0, state.currentWorkoutStep).map((workout, index) => {
     const details = FORMAT_LIBRARY[workout.format];
+    const measuredEffortFactor = getMeasuredEffortFactor(workout, details);
+    const durationMinutes = workout.durationMinutes || details.defaultDurationMinutes;
+    const effortFactor = measuredEffortFactor ?? details.defaultEffortFactor;
+    const sessionLoad = roundLoad(durationMinutes * details.modalityFactor * effortFactor);
+
     return {
       id: `w${index + 1}`,
       ...workout,
       intensity: details.intensity,
+      workoutType: workout.workoutType || workout.format,
+      durationMinutes,
+      source: workout.source || "cult_class",
+      calories: workout.calories || null,
+      sessionLoad,
+      effortFactor,
+      modalityFactor: details.modalityFactor,
+      loadConfidence: getLoadConfidence(workout, measuredEffortFactor),
       zoneWeights: { ...details.zoneWeights },
       dateObject: new Date(`${workout.date}T09:00:00`),
     };
   });
 }
 
-function getCurrentWeekRange() {
-  const anchor = startOfDay(state.currentDate);
-  const day = anchor.getDay();
-  const offsetToMonday = day === 0 ? 6 : day - 1;
-  const start = addDays(anchor, -offsetToMonday);
-  const end = addDays(start, 6);
-  return { start, end };
-}
-
 function getWeeklyLoadSummary() {
   const workouts = getScenarioWorkouts();
   const goal = getGoalConfig();
-  const { start, end } = getCurrentWeekRange();
-  const total = workouts.reduce((sum, workout) => {
-    return workout.dateObject >= start && workout.dateObject <= end ? sum + workout.intensity : sum;
-  }, 0);
-  const sessions = workouts.filter((workout) => workout.dateObject >= start && workout.dateObject <= end).length;
+  const rollingWindow = getWindowRange(state.currentDate, ROLLING_LOAD_DAYS);
+  const baselineWindow = getWindowRange(state.currentDate, BASELINE_LOAD_DAYS, ROLLING_LOAD_DAYS);
+
+  const rollingWorkouts = workouts.filter(
+    (workout) => workout.dateObject >= rollingWindow.start && workout.dateObject <= rollingWindow.end,
+  );
+  const baselineWorkouts = workouts.filter(
+    (workout) => workout.dateObject >= baselineWindow.start && workout.dateObject <= baselineWindow.end,
+  );
+  const total = roundLoad(rollingWorkouts.reduce((sum, workout) => sum + workout.sessionLoad, 0));
+  const baselineLoad = roundLoad(
+    baselineWorkouts.reduce((sum, workout) => sum + workout.sessionLoad, 0) / (BASELINE_LOAD_DAYS / ROLLING_LOAD_DAYS),
+  );
+  const sessions = rollingWorkouts.length;
 
   let status = "below";
   if (total > goal.targetRange[1]) {
@@ -691,11 +1106,23 @@ function getWeeklyLoadSummary() {
     status = "in_range";
   }
 
+  const relativeState =
+    baselineWorkouts.length === 0 && baselineLoad === 0 ? "building" : getRelativeLoadState(total, baselineLoad);
+
   return {
     total,
+    rollingWindow,
+    baselineWindow,
+    rollingLabel: `${ROLLING_LOAD_DAYS}-day rolling load`,
+    baselineLoad,
     sessions,
+    sessionLoads: rollingWorkouts.map((workout) => workout.sessionLoad),
+    relativeState,
+    relativeLabel: RELATIVE_STATE_LABELS[relativeState],
+    confidenceSummary: getConfidenceSummary(rollingWorkouts),
     targetRange: goal.targetRange,
     status,
+    targetLabel: TARGET_STATUS_LABELS[status],
   };
 }
 
@@ -1093,50 +1520,70 @@ function renderButtonGroup(container, library, activeKey, onSelect) {
 }
 
 function renderPresenter() {
-  const scenario = getScenarioConfig();
+  const user = getSelectedUserConfig();
   const goal = getGoalConfig();
   const weekly = getWeeklyLoadSummary();
+  const currentWorkout = getCurrentWorkout();
+  const nextWorkout = getNextWorkout();
 
   currentDateLabel.textContent = formatFullDate(state.currentDate);
   welcomeTitle.textContent = `Good evening, ${state.profile.name.split(" ")[0]}`;
   memberName.textContent = state.profile.name;
   summaryGoal.textContent = goal.label;
-  summaryScenario.textContent = scenario.label;
+  summaryScenario.textContent = getProgressViewLabel();
   summaryRange.textContent = `${goal.targetRange[0]}-${goal.targetRange[1]} load`;
-  summaryLoad.textContent = `${weekly.total}`;
-  scenarioDescription.textContent = scenario.description;
+  summaryLoad.textContent = weekly.targetLabel;
+  progressDescription.textContent = currentWorkout
+    ? `Viewing ${user.label} after ${currentWorkout.format}. ${
+        nextWorkout
+          ? `Next logged workout is ${nextWorkout.format}, so you can step forward and compare the pulse.`
+          : `This is the latest saved workout in the sequence.`
+      }`
+    : `Viewing ${user.label} before the first logged workout so you can compare baseline versus workout 1, 2, and 3.`;
+  saveStatus.textContent = `Saved locally for ${user.label}. Switching users restores their last selected workout step and goal setup.`;
 }
 
 function renderScenarioControls() {
-  renderButtonGroup(profileModeOptions, PROFILE_MODES, state.profileMode, (modeKey) => {
-    state.profileMode = modeKey;
-    state.profile = cloneProfile(modeKey);
-    syncSplitPreference();
-    state.planCreated = PROFILE_MODES[modeKey].planCreated;
-    state.goalStep = 0;
-    if (modeKey === "new_user" && state.behavior !== "first_workout") {
-      state.behavior = "first_workout";
-    }
-    if (modeKey === "existing_user" && state.behavior === "first_workout") {
-      state.behavior = "building";
-    }
+  const userLibrary = Object.fromEntries(
+    Object.entries(USER_LIBRARY).map(([userId, user]) => {
+      const progress = state.userProgress[userId];
+      return [
+        userId,
+        {
+          label: user.label,
+          description: `${GOAL_LIBRARY[progress.profile.goal].label} • ${getProgressViewLabel(userId, progress.workoutStep)}`,
+        },
+      ];
+    }),
+  );
+
+  renderButtonGroup(userOptions, userLibrary, state.selectedUserId, (userId) => {
+    syncStateToCurrentUser();
+    state.selectedUserId = userId;
+    syncCurrentUserToState();
     renderAll();
   });
 
-  renderButtonGroup(behaviorOptions, BEHAVIOR_SCENARIOS, state.behavior, (behaviorKey) => {
-    state.behavior = behaviorKey;
-    if (behaviorKey === "first_workout") {
-      state.profileMode = "new_user";
-      state.profile = cloneProfile("new_user");
-      syncSplitPreference();
-      state.planCreated = false;
-      state.goalStep = 0;
-    } else if (state.profileMode === "new_user") {
-      state.profileMode = "existing_user";
-      state.profile = cloneProfile("existing_user");
-      syncSplitPreference();
-      state.planCreated = true;
-    }
+  const workouts = getSelectedUserConfig().workouts;
+  const workoutLibrary = {
+    0: {
+      label: "Baseline",
+      description: workouts.length
+        ? `Before ${workouts[0].format} on ${formatFullDate(new Date(`${workouts[0].date}T18:30:00`))}`
+        : "Before any logged workouts",
+    },
+  };
+
+  workouts.forEach((workout, index) => {
+    workoutLibrary[index + 1] = {
+      label: `Workout ${index + 1}`,
+      description: `${workout.format} • ${formatFullDate(new Date(`${workout.date}T18:30:00`))}`,
+    };
+  });
+
+  renderButtonGroup(workoutProgressOptions, workoutLibrary, String(state.currentWorkoutStep), (stepKey) => {
+    state.currentWorkoutStep = Number(stepKey);
+    state.currentDate = getReferenceDateForWorkoutStep(state.selectedUserId, state.currentWorkoutStep);
     renderAll();
   });
 }
@@ -1147,12 +1594,13 @@ function renderGoalStepper() {
   steps.forEach((step, index) => {
     const chip = document.createElement("div");
     chip.className = "step-indicator";
+    chip.setAttribute("aria-label", `Step ${index + 1}: ${step.title}`);
+    chip.title = step.title;
     if (index === state.goalStep) {
       chip.classList.add("active");
     } else if (index < state.goalStep) {
       chip.classList.add("done");
     }
-    chip.innerHTML = `<strong>${index + 1}</strong><small>${step.title}</small>`;
     goalStepper.appendChild(chip);
   });
 }
@@ -1172,265 +1620,89 @@ function renderChoiceGrid(target, library, activeKey, onSelect, className = "cho
 }
 
 function getPlanDescription(profile, goal) {
-  const cadence = `${profile.frequency}-day`;
-
-  if (profile.startingPoint === "beginner") {
-    return `${goal.description} Built for a lower-friction ${cadence} rhythm.`;
-  }
-
-  if (profile.startingPoint === "restarting") {
-    return `${goal.description} Built to bring your ${cadence} rhythm back without overreaching.`;
-  }
-
-  return `${goal.description} Built for a more structured ${cadence} rhythm.`;
+  return `${LEVEL_LIBRARY[profile.startingPoint].label} • ${profile.frequency} days/week`;
 }
 
-function getPlanFocus(profile, splitKey) {
-  if (profile.goal === "weight_loss") {
-    if (profile.startingPoint === "beginner") {
-      return "Consistency first";
-    }
-
-    if (profile.startingPoint === "restarting") {
-      return "Rebuild the burn";
-    }
-
-    return splitKey === "upper_lower"
-      ? "Conditioning with structure"
-      : "Steady broad burn";
-  }
-
-  if (profile.goal === "strength") {
-    if (profile.startingPoint === "beginner") {
-      return "Strength basics";
-    }
-
-    if (profile.startingPoint === "restarting") {
-      return "Rebuild lifting rhythm";
-    }
-
-    return splitKey === "two_muscles"
-      ? "Focused strength split"
-      : "Structured strength week";
-  }
-
-  if (profile.startingPoint === "beginner") {
-    return "Balanced base";
-  }
-
-  if (profile.startingPoint === "restarting") {
-    return "All-round comeback";
-  }
-
-  return splitKey === "upper_lower"
-    ? "Balanced structure"
-    : "Broad sustainable mix";
-}
-
-function getWeeklyStructure(profile, splitKey) {
+function getWeeklyPatternItems(profile, splitKey) {
   const frequency = Number(profile.frequency);
 
   if (profile.goal === "general_fitness") {
     if (frequency === 2) {
-      return [
-        "1 strength or full-body anchor session",
-        "1 cardio or mobility-led session",
-      ];
+      return ["Gym: Full body", "GX: Yoga"];
     }
 
     if (frequency === 3) {
-      return [
-        "1 strength or full-body anchor",
-        "1 conditioning session",
-        "1 yoga or mobility recovery session",
-      ];
+      return ["Gym: Full body", "GX: Boxing", "GX: Yoga"];
     }
 
     if (splitKey === "upper_lower") {
       return frequency === 4
-        ? [
-            "1 upper-body strength day",
-            "1 lower-body strength day",
-            "1 conditioning day",
-            "1 yoga or mobility reset",
-          ]
-        : [
-            "1 upper-body strength day",
-            "1 lower-body strength day",
-            "1 conditioning day",
-            "1 yoga or mobility reset",
-            "1 flexible fun session",
-          ];
+        ? ["Gym: Upper", "Gym: Lower", "GX: Boxing", "GX: Yoga"]
+        : ["Gym: Upper", "Gym: Lower", "GX: Boxing", "GX: Yoga", "GX: Burn"];
     }
 
     return frequency === 4
-      ? [
-          "1 full-body strength anchor",
-          "1 mixed strength session",
-          "1 conditioning day",
-          "1 recovery or yoga reset",
-        ]
-      : [
-          "1 full-body strength anchor",
-          "1 mixed strength session",
-          "1 conditioning day",
-          "1 recovery or yoga reset",
-          "1 flexible fun session",
-        ];
+      ? ["Gym: Full body", "Gym: Full body", "GX: Boxing", "GX: Yoga"]
+      : ["Gym: Full body", "Gym: Full body", "GX: Boxing", "GX: Yoga", "GX: Burn"];
   }
 
   if (profile.goal === "weight_loss") {
     if (frequency === 2) {
-      return [
-        "1 full-body or conditioning anchor",
-        "1 second full-body or conditioning anchor",
-      ];
+      return ["GX: HRX", "GX: Boxing"];
     }
 
     if (frequency === 3) {
-      return [
-        "1 full-body or conditioning anchor",
-        "1 second conditioning-focused anchor",
-        "1 recovery or mobility session",
-      ];
+      return ["GX: HRX", "GX: Burn", "GX: Yoga"];
     }
 
     if (splitKey === "upper_lower") {
       return frequency === 4
-        ? [
-            "1 upper-body strength day",
-            "1 lower-body strength day",
-            "1 conditioning day",
-            "1 yoga or mobility reset",
-          ]
-        : [
-            "1 upper-body strength day",
-            "1 lower-body strength day",
-            "1 conditioning day",
-            "1 second conditioning or mixed day",
-            "1 recovery reset",
-          ];
+        ? ["Gym: Upper", "Gym: Lower", "GX: HRX", "GX: Yoga"]
+        : ["Gym: Upper", "Gym: Lower", "GX: HRX", "GX: Burn", "GX: Yoga"];
     }
 
     return frequency === 4
-      ? [
-          "1 conditioning anchor",
-          "1 second conditioning session",
-          "1 strength session",
-          "1 yoga or mobility reset",
-        ]
-      : [
-          "1 conditioning anchor",
-          "1 second conditioning session",
-          "1 strength session",
-          "1 recovery reset",
-          "1 extra mixed session if energy is good",
-        ];
+      ? ["GX: HRX", "GX: Burn", "Gym: Full body", "GX: Yoga"]
+      : ["GX: HRX", "GX: Burn", "Gym: Full body", "GX: Boxing", "GX: Yoga"];
   }
 
   if (splitKey === "two_muscles") {
-    return [
-      "1 chest + triceps focus day",
-      "1 back + biceps focus day",
-      "1 legs + glutes focus day",
-      "1 shoulders + core focus day",
-      "1 lighter accessory or recovery pump day",
-    ];
+    return ["Gym: Chest+Tri", "Gym: Back+Bicep", "Gym: Legs", "Gym: Shoulders+Core", "GX: Yoga"];
   }
 
   if (splitKey === "upper_lower") {
     if (frequency === 3) {
-      return [
-        "1 upper-body strength day",
-        "1 lower-body strength day",
-        "1 mobility or light conditioning day",
-      ];
+      return ["Gym: Upper", "Gym: Lower", "GX: Yoga"];
     }
 
     return frequency === 4
-      ? [
-          "1 upper-body strength day",
-          "1 lower-body strength day",
-          "1 second upper-body day",
-          "1 second lower-body day",
-        ]
-      : [
-          "1 upper-body strength day",
-          "1 lower-body strength day",
-          "1 second upper-body day",
-          "1 second lower-body day",
-          "1 lighter accessory or conditioning day",
-        ];
+      ? ["Gym: Upper", "Gym: Lower", "Gym: Upper", "Gym: Lower"]
+      : ["Gym: Upper", "Gym: Lower", "Gym: Upper", "Gym: Lower", "GX: Yoga"];
   }
 
   if (frequency === 2) {
-    return [
-      "1 full-body strength day",
-      "1 second full-body strength day",
-    ];
+    return ["Gym: Full body", "Gym: Full body"];
   }
 
   if (frequency === 3) {
-    return [
-      "1 full-body strength day",
-      "1 second full-body strength day",
-      "1 mobility or light conditioning session",
-    ];
+    return ["Gym: Full body", "Gym: Full body", "GX: Yoga"];
   }
 
   return frequency === 4
-    ? [
-        "1 full-body strength day",
-        "1 upper-body accessory day",
-        "1 lower-body accessory day",
-        "1 mobility or recovery reset",
-      ]
-    : [
-        "1 full-body strength day",
-        "1 second full-body strength day",
-        "1 upper-body accessory day",
-        "1 lower-body accessory day",
-        "1 mobility or recovery reset",
-      ];
-}
-
-function getCuroPlanSummary(profile, splitKey, goal) {
-  const splitLabel = SPLIT_LIBRARY[splitKey].label.toLowerCase();
-  const cadence = FREQUENCY_LIBRARY[profile.frequency].label.toLowerCase();
-
-  if (profile.startingPoint === "beginner") {
-    return `This ${splitLabel} week keeps the barrier low, gives you enough variety to feel progress, and makes ${cadence} feel easy to repeat.`;
-  }
-
-  if (profile.startingPoint === "restarting") {
-    return `This ${splitLabel} week is about getting your rhythm back. It gives you enough quality work to feel momentum again without making recovery the blocker.`;
-  }
-
-  if (profile.goal === "strength" && splitKey === "two_muscles") {
-    return `Because you already train regularly, this focused split adds more structure without pushing the weekly load outside your target zone.`;
-  }
-
-  if (goal.label === "Stay fit") {
-    return `You do not need a hardcore week to stay fit. This setup keeps strength, conditioning, and recovery all alive in the same plan.`;
-  }
-
-  return `This ${splitLabel} setup matches the work you already do well, while keeping the week balanced enough to repeat next week too.`;
+    ? ["Gym: Full body", "Gym: Upper", "Gym: Lower", "GX: Yoga"]
+    : ["Gym: Full body", "Gym: Full body", "Gym: Upper", "Gym: Lower", "GX: Yoga"];
 }
 
 function generateWeeklyProgram(profile = state.profile) {
   const goal = getGoalConfigForProfile(profile);
   const splitKey = getResolvedSplitPreference(profile);
-  const level = LEVEL_LIBRARY[profile.startingPoint];
 
   return {
-    title: `${goal.label} ${level.titleTag.toLowerCase()} plan`,
+    title: `${goal.label} plan`,
     description: getPlanDescription(profile, goal),
     targetRange: goal.targetRange,
-    focus: getPlanFocus(profile, splitKey),
     split: SPLIT_LIBRARY[splitKey].label,
-    cadence: `${profile.frequency} days each week`,
-    weeklyStructure: getWeeklyStructure(profile, splitKey),
-    curoSummary: getCuroPlanSummary(profile, splitKey, goal),
+    patternItems: getWeeklyPatternItems(profile, splitKey),
   };
 }
 
@@ -1506,17 +1778,15 @@ function renderGoalPlan() {
   planSummary.classList.remove("hidden");
   setupPreviewTitle.textContent = program.title;
   setupPreviewBody.textContent = program.description;
-  previewTargetRange.textContent = `${program.targetRange[0]}-${program.targetRange[1]} load`;
-  previewIntent.textContent = program.focus;
+  previewTargetRange.textContent = "Target zone";
   previewSplit.textContent = program.split;
-  previewCadence.textContent = program.cadence;
-  previewWeeklyStructure.innerHTML = "";
-  program.weeklyStructure.forEach((item) => {
-    const listItem = document.createElement("li");
-    listItem.textContent = item;
-    previewWeeklyStructure.appendChild(listItem);
+  previewWeeklyPattern.innerHTML = "";
+  program.patternItems.forEach((item) => {
+    const chip = document.createElement("span");
+    chip.className = "plan-pattern-chip";
+    chip.textContent = item;
+    previewWeeklyPattern.appendChild(chip);
   });
-  previewCuroSummary.textContent = program.curoSummary;
 }
 
 function renderGoal() {
@@ -1634,6 +1904,99 @@ function getPulseNarrative(summary, weekly, goal, plannedSessions) {
   };
 }
 
+function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program) {
+  const recommendedFormat = summary.recommendedFormat || "HRX";
+  const remainingSessions = Math.max(0, plannedSessions - weekly.sessions);
+  const recommendedSession =
+    recommendedFormat === "Strength & Conditioning" ? "Strength session" : recommendedFormat;
+
+  if (weekly.status === "in_range") {
+    return {
+      title: `${goal.label} plan is on track`,
+      text: "You are in the right zone for this week, and the plan is holding steady.",
+      split: program.split,
+      progress: `${weekly.sessions}/${plannedSessions} done`,
+      actionLabel: `Keep ${recommendedSession} in rotation`,
+    };
+  }
+
+  if (weekly.status === "above") {
+    return {
+      title: `${goal.label} plan is above target`,
+      text: "You have already gone above target this week.",
+      split: program.split,
+      progress: `${weekly.sessions}/${plannedSessions} done`,
+      actionLabel: "Prioritize recovery",
+    };
+  }
+
+  if (summary.coolingRisk === "dropoff_risk") {
+    return {
+      title: `${goal.label} plan needs a restart`,
+      text: "This week has dropped off and the plan needs a restart.",
+      split: program.split,
+      progress: `${weekly.sessions}/${plannedSessions} done`,
+      actionLabel: `Plan ${recommendedSession}`,
+    };
+  }
+
+  if (remainingSessions <= 1) {
+    return {
+      title: `${goal.label} plan needs one more session`,
+      text: "You are close to target, with one session still left to complete the week.",
+      split: program.split,
+      progress: `${weekly.sessions}/${plannedSessions} done`,
+      actionLabel: `Plan ${recommendedSession}`,
+    };
+  }
+
+  return {
+    title: `${goal.label} plan is behind this week`,
+    text: "This week is still below target, and the plan is not fully back on track yet.",
+    split: program.split,
+    progress: `${weekly.sessions}/${plannedSessions} done`,
+    actionLabel: `Plan ${recommendedSession}`,
+  };
+}
+
+function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort) {
+  if (!latestWorkout) {
+    return "No workout has landed in this week's view yet.";
+  }
+
+  if (weekly.status === "above") {
+    return `${workoutEffort.headline} from your latest ${latestWorkout.format} session pushed the week above target.`;
+  }
+
+  if (weekly.status === "in_range") {
+    return `${workoutEffort.headline} from your latest ${latestWorkout.format} session moved the week into target.`;
+  }
+
+  if (workoutEffort.key === "light") {
+    return `${workoutEffort.headline} from your latest ${latestWorkout.format} session nudged the week forward, but this week is still building.`;
+  }
+
+  return `${workoutEffort.headline} from your latest ${latestWorkout.format} session moved the week forward, but it is still below target.`;
+}
+
+function renderSupportPanel() {
+  supportPanel.classList.toggle("hidden", !state.supportPanelOpen);
+  helpToggleButton.textContent = state.supportPanelOpen ? "Hide help" : "Need help?";
+}
+
+function renderAdherenceProgressDots(completed, planned) {
+  adherenceProgressDots.innerHTML = "";
+
+  Array.from({ length: planned }, (_, index) => {
+    const dot = document.createElement("span");
+    dot.className = "adherence-progress-dot";
+    if (index < completed) {
+      dot.classList.add("done");
+    }
+    adherenceProgressDots.appendChild(dot);
+  });
+}
+
 function renderPulseMap(pulseStates) {
   const assetScores = getBodyAssetStates(pulseStates);
 
@@ -1656,46 +2019,76 @@ function renderPulseMap(pulseStates) {
 
 function renderPulse() {
   const goal = getGoalConfig();
+  const program = generateWeeklyProgram();
+  const workouts = getScenarioWorkouts();
   const weekly = getWeeklyLoadSummary();
   const pulseSummary = getPulseSummary();
+  const latestWorkout = getLatestCompletedWorkout(workouts);
+  const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
   const narrative = getPulseNarrative(pulseSummary, weekly, goal, Number(state.profile.frequency));
+  const adherence = getGoalAdherenceCopy(
+    pulseSummary,
+    weekly,
+    goal,
+    Number(state.profile.frequency),
+    program,
+  );
+  const latestWorkoutInWindow =
+    latestWorkout &&
+    latestWorkout.dateObject >= weekly.rollingWindow.start &&
+    latestWorkout.dateObject <= weekly.rollingWindow.end
+      ? latestWorkout
+      : null;
+  const previousWeeklyTotal = roundLoad(
+    Math.max(0, weekly.total - (latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0)),
+  );
 
   pulseHeadline.textContent = narrative.headline;
+  pulseEffortSummary.textContent = narrative.insightText;
   pulseMomentumPill.textContent = narrative.pill;
+  pulseMomentumPill.classList.remove("is-cooling", "is-risk", "is-recovering", "is-light", "is-moderate", "is-high", "is-very-high");
   pulseMomentumPill.classList.toggle("is-cooling", pulseSummary.coolingRisk === "early_cooling");
   pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
   pulseMomentumPill.classList.toggle("is-recovering", pulseSummary.momentumState === "fresh_gain" || pulseSummary.momentumState === "recovering");
-  pulseLoadValue.textContent = `${weekly.total} / ${goal.targetRange[0]}-${goal.targetRange[1]}`;
-  pulseLoadSubtext.textContent = `${weekly.sessions} sessions this week`;
+  pulseLoadValue.textContent = weekly.targetLabel;
+  pulseLoadSubtext.textContent = latestWorkout
+    ? `Latest workout: ${latestWorkout.format} • ${latestWorkout.durationMinutes} min • ${workoutEffort.headline}`
+    : `${weekly.sessions} sessions in the last ${ROLLING_LOAD_DAYS} days`;
 
   miniLoadTarget.style.left = toPercent(goal.targetRange[0], LOAD_MAX);
   miniLoadTarget.style.width = toPercent(goal.targetRange[1] - goal.targetRange[0], LOAD_MAX);
-  miniLoadFill.style.width = toPercent(weekly.total, LOAD_MAX);
+  miniLoadPrevious.style.width = toPercent(previousWeeklyTotal, LOAD_MAX);
+  miniLoadBoost.style.left = toPercent(previousWeeklyTotal, LOAD_MAX);
+  miniLoadBoost.style.width = toPercent(
+    latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0,
+    LOAD_MAX,
+  );
 
-  loadStatusBadge.textContent =
-    weekly.status === "in_range"
-      ? "In target"
-      : weekly.status === "above"
-        ? "Above target"
-        : "Below target";
+  loadStatusBadge.textContent = weekly.targetLabel;
   loadStatusBadge.classList.toggle("in-range", weekly.status === "in_range");
   loadStatusBadge.classList.toggle("above", weekly.status === "above");
+  weeklyLoadNarrative.textContent = getWeeklyLoadNarrative(
+    weekly,
+    latestWorkoutInWindow,
+    workoutEffort,
+  );
 
-  goalAdherenceTitle.textContent = narrative.adherenceTitle;
-  goalAdherenceText.textContent = narrative.adherenceText;
-  topZonesLabel.textContent = pulseSummary.topZones.length
-    ? pulseSummary.topZones.map((zone) => ZONE_LIBRARY[zone].label).join(", ")
-    : "Recovery";
-  bodyCoverageLabel.textContent = pulseSummary.coverageLabel;
-  primaryAction.textContent = narrative.actionLabel;
-  trainingInsightTitle.textContent = narrative.insightTitle;
-  pulseCuroText.textContent = narrative.insightText;
+  goalAdherenceTitle.textContent = adherence.title;
+  goalAdherenceText.textContent = adherence.text;
+  adherenceSplitLabel.textContent = adherence.split;
+  adherenceProgressLabel.textContent = adherence.progress;
+  renderAdherenceProgressDots(weekly.sessions, Number(state.profile.frequency));
+  primaryAction.textContent = adherence.actionLabel || "View goal plan";
+  trainingInsightTitle.textContent = "What today means";
+  pulseCuroText.textContent = workoutEffort.guidance;
 
   renderPulseMap(pulseSummary.zones);
 }
 
 function renderAll() {
+  syncStateToCurrentUser();
   renderTabs();
+  renderSupportPanel();
   renderScenarioControls();
   renderPresenter();
   renderGoal();
@@ -1704,12 +2097,10 @@ function renderAll() {
 
 function resetDemo() {
   state.activeTab = "goal";
-  state.profileMode = "existing_user";
-  state.behavior = "building";
-  state.profile = cloneProfile("existing_user");
-  syncSplitPreference();
-  state.planCreated = PROFILE_MODES.existing_user.planCreated;
-  state.goalStep = 0;
+  state.selectedUserId = DEFAULT_USER_ID;
+  state.userProgress = getDefaultUserProgressMap();
+  state.supportPanelOpen = false;
+  syncCurrentUserToState();
   syncTabHash();
   renderAll();
 }
@@ -1725,7 +2116,7 @@ tabButtons.forEach((button) => {
 goalBackButton.addEventListener("click", () => {
   if (state.goalStep > 0) {
     state.goalStep -= 1;
-    renderGoal();
+    renderAll();
   }
 });
 
@@ -1734,13 +2125,13 @@ goalNextButton.addEventListener("click", () => {
 
   if (state.goalStep < steps.length - 1) {
     state.goalStep += 1;
-    renderGoal();
+    renderAll();
     return;
   }
 
   syncSplitPreference();
   state.planCreated = true;
-  renderGoalPlan();
+  renderAll();
 });
 
 viewPulseFromPlan.addEventListener("click", () => {
@@ -1749,21 +2140,25 @@ viewPulseFromPlan.addEventListener("click", () => {
   renderAll();
 });
 
+helpToggleButton.addEventListener("click", () => {
+  state.supportPanelOpen = !state.supportPanelOpen;
+  renderSupportPanel();
+});
+
 primaryAction.addEventListener("click", () => {
-  primaryAction.textContent = "Class booked";
-  setTimeout(() => {
-    renderPulse();
-  }, 1400);
+  state.activeTab = "goal";
+  syncTabHash();
+  renderAll();
 });
 
 resetButton.addEventListener("click", resetDemo);
 
 centerConsultNudge.addEventListener("click", () => {
-  centerConsultNudge.querySelector("small").textContent = "Coach consult suggested near the selected center.";
+  centerConsultNudge.querySelector("small").textContent = "Coach consult suggested near your selected center.";
 });
 
 bcaNudge.addEventListener("click", () => {
-  bcaNudge.querySelector("small").textContent = "BCA check suggested near the selected center.";
+  bcaNudge.querySelector("small").textContent = "BCA check suggested near your selected center.";
 });
 
 window.addEventListener("hashchange", () => {
@@ -1779,5 +2174,5 @@ if (initialHash === "goal" || initialHash === "pulse") {
   state.activeTab = initialHash;
 }
 
-syncSplitPreference();
+syncCurrentUserToState();
 renderAll();

@@ -6,7 +6,7 @@ Static hackathon prototype for the Cult Pulse concept.
 
 - `index.html`: app shell and screen structure
 - `styles.css`: visual system and responsive styling
-- `app.js`: mock data, pulse/decay logic, training load, and Curo copy
+- `app.js`: mock data, pulse/decay logic, rolling training load, baseline comparison, and Curo copy
 
 ## Run
 
@@ -14,8 +14,8 @@ Open [index.html](/Users/nikhil.kulkarni/Desktop/Work/96 Hackathon/cult-pulse-de
 
 ## Demo actions
 
-- Go through `Goal setup` to personalize the weekly target
+- Go through `Goal setup` to personalize the 7-day target
 - Open `Pulse Map` and click `Complete HRX session`
 - Click `Simulate 14 days inactive` to show decay
-- Open `Training Load` to show how the weekly score changes
+- Open `Training Load` to show how rolling load, baseline context, and confidence change
 - End on `Future scope` for mocked progress views

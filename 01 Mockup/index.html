@@ -25,13 +25,13 @@
         </div>
 
         <section class="control-section">
-          <div class="section-topline">Base profile</div>
-          <div id="profileModeOptions" class="control-stack"></div>
+          <div class="section-topline">Users</div>
+          <div id="userOptions" class="control-stack"></div>
         </section>
 
         <section class="control-section">
-          <div class="section-topline">Behavior state</div>
-          <div id="behaviorOptions" class="control-stack"></div>
+          <div class="section-topline">Workout progression</div>
+          <div id="workoutProgressOptions" class="control-stack"></div>
         </section>
 
         <section class="summary-card">
@@ -44,25 +44,28 @@
             <strong id="summaryGoal">Weight loss</strong>
           </div>
           <div class="summary-row">
-            <span>Status</span>
-            <strong id="summaryScenario">Building this week</strong>
+            <span>Progress view</span>
+            <strong id="summaryScenario">Workout 2 of 4</strong>
           </div>
           <div class="summary-row">
             <span>Weekly target</span>
-            <strong id="summaryRange">15-20 load</strong>
+            <strong id="summaryRange">13-18 load</strong>
           </div>
           <div class="summary-row">
-            <span>Current load</span>
-            <strong id="summaryLoad">10</strong>
+            <span>Weekly status</span>
+            <strong id="summaryLoad">Below target</strong>
           </div>
         </section>
 
         <section class="timeline-card">
-          <h2>Scenario note</h2>
-          <p id="scenarioDescription" class="support-copy">
-            Existing user with some momentum this week, but still one session short of the target zone.
+          <h2>Saved progress</h2>
+          <p id="progressDescription" class="support-copy">
+            Viewing Aisha after workout 2, with progress saved locally when you switch between users.
           </p>
-          <button id="resetDemo" class="ghost-button full-width" type="button">Reset demo</button>
+          <p id="saveStatus" class="support-copy save-status">
+            Progress is saved automatically for each user on this browser.
+          </p>
+          <button id="resetDemo" class="ghost-button full-width" type="button">Reset saved users</button>
         </section>
       </aside>
 
@@ -74,8 +77,20 @@
           </div>
           <div class="header-meta">
             <span id="currentDateLabel">Thu, 9 Apr 2026</span>
+            <button id="helpToggleButton" class="header-help-button" type="button">Need help?</button>
           </div>
         </header>
+
+        <div id="supportPanel" class="support-panel hidden">
+          <button id="centerConsultNudge" class="support-nudge" type="button">
+            <strong>Talk to a coach</strong>
+            <small>Get an in-person recommendation for your next week.</small>
+          </button>
+          <button id="bcaNudge" class="support-nudge" type="button">
+            <strong>Schedule a BCA report</strong>
+            <small>Use a body-composition baseline if you want extra guidance.</small>
+          </button>
+        </div>
 
         <nav class="product-tabs" aria-label="Cult Pulse tabs">
           <button class="tab-button active" data-tab-target="goal" type="button">Goal</button>
@@ -124,38 +139,14 @@
                       <dd id="previewTargetRange"></dd>
                     </div>
                     <div>
-                      <dt>Weekly focus</dt>
-                      <dd id="previewIntent"></dd>
-                    </div>
-                    <div>
                       <dt>Recommended split</dt>
                       <dd id="previewSplit"></dd>
-                    </div>
-                    <div>
-                      <dt>Weekly rhythm</dt>
-                      <dd id="previewCadence"></dd>
                     </div>
                   </dl>
 
                   <div class="plan-section">
                     <h4 class="plan-section-title">Your weekly pattern</h4>
-                    <ul id="previewWeeklyStructure" class="weekly-structure"></ul>
-                  </div>
-
-                  <div class="plan-section">
-                    <h4 class="plan-section-title">Curo's read</h4>
-                    <p id="previewCuroSummary" class="plan-curo-note"></p>
-                  </div>
-
-                  <div class="plan-nudges">
-                    <button id="centerConsultNudge" class="support-nudge" type="button">
-                      <strong>Talk to a coach at a nearby center</strong>
-                      <small>Get in-person help setting your goal if you want expert guidance.</small>
-                    </button>
-                    <button id="bcaNudge" class="support-nudge" type="button">
-                      <strong>Schedule a BCA report check</strong>
-                      <small>Book a nearby cult center visit to get a baseline body-composition read.</small>
-                    </button>
+                    <div id="previewWeeklyPattern" class="plan-pattern-row"></div>
                   </div>
 
                   <button id="viewPulseFromPlan" class="primary-button full-width" type="button">
@@ -170,8 +161,9 @@
             <section class="pulse-card">
               <div class="pulse-card-top">
                 <div>
-                  <div class="section-topline">Your Pulse</div>
+                  <div class="section-topline">Curo insight</div>
                   <h2 id="pulseHeadline">You are close to your target this week</h2>
+                  <p id="pulseEffortSummary" class="section-copy">A solid session that moves the week forward.</p>
                 </div>
                 <div class="pulse-state-pill" id="pulseMomentumPill">Momentum building</div>
               </div>
@@ -227,36 +219,38 @@
 
                 <div class="pulse-side-column">
                   <section class="pulse-side-card">
-                    <div class="section-topline">Training load</div>
-                    <h3 id="pulseLoadValue">10 / 15-20</h3>
-                    <p id="pulseLoadSubtext" class="support-copy">2 sessions logged this week</p>
+                    <div class="section-topline">This week</div>
+                    <h3 id="pulseLoadValue">Below target</h3>
+                    <p id="pulseLoadSubtext" class="support-copy">Latest workout: Boxing • 45 min • Moderate effort</p>
                     <div class="mini-load-meter">
                       <div class="mini-load-target" id="miniLoadTarget"></div>
-                      <div class="mini-load-fill" id="miniLoadFill"></div>
+                      <div class="mini-load-previous" id="miniLoadPrevious"></div>
+                      <div class="mini-load-boost" id="miniLoadBoost"></div>
                     </div>
                     <div class="mini-load-labels">
-                      <span>0</span>
+                      <span>Low</span>
                       <span id="loadStatusBadge" class="load-badge">Below target</span>
-                      <span>30</span>
+                      <span>High</span>
                     </div>
+                    <p id="weeklyLoadNarrative" class="section-copy">Your latest workout moved the week forward, but the weekly view stays descriptive rather than prescriptive.</p>
                   </section>
 
                   <section class="pulse-side-card">
                     <div class="section-topline">Goal adherence</div>
                     <h3 id="goalAdherenceTitle">One more class gets you back into range</h3>
                     <p id="goalAdherenceText" class="support-copy">
-                      You are building momentum, but this week still needs one strong session to feel complete.
+                      You are building momentum, and this card carries the single recommended next move.
                     </p>
                     <div class="adherence-meta">
-                      <span>Most active</span>
-                      <strong id="topZonesLabel">Core, Shoulders, Arms</strong>
+                      <span>Recommended split</span>
+                      <strong id="adherenceSplitLabel">Upper / lower</strong>
                     </div>
-                    <div class="adherence-meta">
-                      <span>Body coverage</span>
-                      <strong id="bodyCoverageLabel">4 zones lit</strong>
+                    <div class="adherence-progress">
+                      <div id="adherenceProgressDots" class="adherence-progress-dots"></div>
+                      <strong id="adherenceProgressLabel">2/4 done</strong>
                     </div>
                     <button id="primaryAction" class="primary-button full-width" type="button">
-                      Book next session
+                      Plan HRX
                     </button>
                   </section>
                 </div>
@@ -267,7 +261,7 @@
                   <div class="curo-avatar">C</div>
                   <div>
                     <div class="section-topline">Curo</div>
-                    <h3 id="trainingInsightTitle">What changed today</h3>
+                    <h3 id="trainingInsightTitle">What today means</h3>
                   </div>
                 </div>
                 <p id="pulseCuroText" class="curo-text"></p>
