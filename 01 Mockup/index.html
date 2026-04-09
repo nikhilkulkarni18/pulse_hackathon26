@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cult Pulse Demo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-left"></div>
+    <div class="ambient ambient-right"></div>
+
+    <main class="app-shell">
+      <aside class="presenter-panel panel">
+        <div class="brand-lockup">
+          <div class="brand-spark" aria-hidden="true">
+            <span class="spark spark-pink"></span>
+            <span class="spark spark-cyan"></span>
+            <span class="spark spark-yellow"></span>
+          </div>
+          <div>
+            <div class="brand-name">Pulse</div>
+            <div class="brand-subtitle">Controls</div>
+          </div>
+        </div>
+
+        <section class="control-section">
+          <div class="section-topline">Base profile</div>
+          <div id="profileModeOptions" class="control-stack"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-topline">Behavior state</div>
+          <div id="behaviorOptions" class="control-stack"></div>
+        </section>
+
+        <section class="summary-card">
+          <div class="summary-row">
+            <span>Member</span>
+            <strong id="memberName">Aisha Rao</strong>
+          </div>
+          <div class="summary-row">
+            <span>Goal</span>
+            <strong id="summaryGoal">Weight loss</strong>
+          </div>
+          <div class="summary-row">
+            <span>Status</span>
+            <strong id="summaryScenario">Building this week</strong>
+          </div>
+          <div class="summary-row">
+            <span>Weekly target</span>
+            <strong id="summaryRange">15-20 load</strong>
+          </div>
+          <div class="summary-row">
+            <span>Current load</span>
+            <strong id="summaryLoad">10</strong>
+          </div>
+        </section>
+
+        <section class="timeline-card">
+          <h2>Scenario note</h2>
+          <p id="scenarioDescription" class="support-copy">
+            Existing user with some momentum this week, but still one session short of the target zone.
+          </p>
+          <button id="resetDemo" class="ghost-button full-width" type="button">Reset demo</button>
+        </section>
+      </aside>
+
+      <section class="product-shell panel">
+        <header class="product-header">
+          <div>
+            <p class="eyebrow">Cult Pulse</p>
+            <h1 id="welcomeTitle">Good evening, Aisha</h1>
+          </div>
+          <div class="header-meta">
+            <span id="currentDateLabel">Thu, 9 Apr 2026</span>
+          </div>
+        </header>
+
+        <nav class="product-tabs" aria-label="Cult Pulse tabs">
+          <button class="tab-button active" data-tab-target="goal" type="button">Goal</button>
+          <button class="tab-button" data-tab-target="pulse" type="button">Your Pulse</button>
+        </nav>
+
+        <section class="tab-stage">
+          <article class="tab-screen active" data-tab="goal">
+            <div class="goal-layout">
+              <section class="goal-flow-card">
+                <div class="goal-flow-header">
+                  <div>
+                    <div class="section-topline">Goal setup</div>
+                    <h2 id="goalStepTitle">What are you working toward?</h2>
+                  </div>
+                  <div class="step-count" id="goalStepCount">Step 1 of 2</div>
+                </div>
+
+                <div class="goal-stepper" id="goalStepper"></div>
+                <p id="goalStepDescription" class="section-copy"></p>
+
+                <div id="goalStepContent" class="goal-step-content"></div>
+
+                <div class="goal-actions">
+                  <button id="goalBackButton" class="ghost-button" type="button">Back</button>
+                  <button id="goalNextButton" class="primary-button" type="button">Next</button>
+                </div>
+              </section>
+
+              <section class="goal-plan-card">
+                <div class="preview-badge">Your plan</div>
+                <div id="planEmptyState" class="plan-empty-state">
+                  <h3>Create your plan</h3>
+                  <p class="support-copy">
+                    Choose your goal and preferred weekly rhythm to create your first plan.
+                  </p>
+                </div>
+
+                <div id="planSummary" class="plan-summary hidden">
+                  <h3 id="setupPreviewTitle">Weight loss plan</h3>
+                  <p id="setupPreviewBody" class="support-copy"></p>
+
+                  <dl class="preview-metrics">
+                    <div>
+                      <dt>Target zone</dt>
+                      <dd id="previewTargetRange"></dd>
+                    </div>
+                    <div>
+                      <dt>Weekly focus</dt>
+                      <dd id="previewIntent"></dd>
+                    </div>
+                    <div>
+                      <dt>Weekly rhythm</dt>
+                      <dd id="previewTone"></dd>
+                    </div>
+                  </dl>
+
+                  <div class="plan-nudges">
+                    <button id="centerConsultNudge" class="support-nudge" type="button">
+                      <strong>Talk to a coach at a nearby center</strong>
+                      <small>Get in-person help setting your goal if you want expert guidance.</small>
+                    </button>
+                    <button id="bcaNudge" class="support-nudge" type="button">
+                      <strong>Schedule a BCA report check</strong>
+                      <small>Book a nearby cult center visit to get a baseline body-composition read.</small>
+                    </button>
+                  </div>
+
+                  <button id="viewPulseFromPlan" class="primary-button full-width" type="button">
+                    View Your Pulse
+                  </button>
+                </div>
+              </section>
+            </div>
+          </article>
+
+          <article class="tab-screen" data-tab="pulse">
+            <section class="pulse-card">
+              <div class="pulse-card-top">
+                <div>
+                  <div class="section-topline">Your Pulse</div>
+                  <h2 id="pulseHeadline">You are close to your target this week</h2>
+                </div>
+                <div class="pulse-state-pill" id="pulseMomentumPill">Momentum building</div>
+              </div>
+
+              <div class="pulse-main-card">
+                <div class="pulse-visual-column">
+                  <div
+                    id="pulseMap"
+                    class="reference-map"
+                    role="img"
+                    aria-label="Body map showing activated muscle groups"
+                  >
+                    <img
+                      class="body-reference body-reference-base"
+                      src="../2026-04 Cult Pulse/99 Current Body Map Images/template.jpeg"
+                      alt=""
+                    />
+                    <img
+                      class="body-reference body-reference-overlay"
+                      data-asset-zone="shoulders"
+                      src="../2026-04 Cult Pulse/99 Current Body Map Images/shoulders.jpeg"
+                      alt=""
+                    />
+                    <img
+                      class="body-reference body-reference-overlay"
+                      data-asset-zone="arms"
+                      src="../2026-04 Cult Pulse/99 Current Body Map Images/arms.jpeg"
+                      alt=""
+                    />
+                    <img
+                      class="body-reference body-reference-overlay"
+                      data-asset-zone="chest"
+                      src="../2026-04 Cult Pulse/99 Current Body Map Images/chest.jpeg"
+                      alt=""
+                    />
+                    <img
+                      class="body-reference body-reference-overlay"
+                      data-asset-zone="back"
+                      src="../2026-04 Cult Pulse/99 Current Body Map Images/back.jpeg"
+                      alt=""
+                    />
+                    <img
+                      class="body-reference body-reference-overlay"
+                      data-asset-zone="legs"
+                      src="../2026-04 Cult Pulse/99 Current Body Map Images/legs.jpeg"
+                      alt=""
+                    />
+                    <div class="body-hotspot body-hotspot-core" data-hotspot="core"></div>
+                    <div class="body-hotspot body-hotspot-cardio" data-hotspot="cardio"></div>
+                  </div>
+                </div>
+
+                <div class="pulse-side-column">
+                  <section class="pulse-side-card">
+                    <div class="section-topline">Training load</div>
+                    <h3 id="pulseLoadValue">10 / 15-20</h3>
+                    <p id="pulseLoadSubtext" class="support-copy">2 sessions logged this week</p>
+                    <div class="mini-load-meter">
+                      <div class="mini-load-target" id="miniLoadTarget"></div>
+                      <div class="mini-load-fill" id="miniLoadFill"></div>
+                    </div>
+                    <div class="mini-load-labels">
+                      <span>0</span>
+                      <span id="loadStatusBadge" class="load-badge">Below target</span>
+                      <span>30</span>
+                    </div>
+                  </section>
+
+                  <section class="pulse-side-card">
+                    <div class="section-topline">Goal adherence</div>
+                    <h3 id="goalAdherenceTitle">One more class gets you back into range</h3>
+                    <p id="goalAdherenceText" class="support-copy">
+                      You are building momentum, but this week still needs one strong session to feel complete.
+                    </p>
+                    <div class="adherence-meta">
+                      <span>Most active</span>
+                      <strong id="topZonesLabel">Core, Shoulders, Arms</strong>
+                    </div>
+                    <button id="primaryAction" class="primary-button full-width" type="button">
+                      Book next session
+                    </button>
+                  </section>
+                </div>
+              </div>
+
+              <section class="curo-card">
+                <div class="curo-card-top">
+                  <div class="curo-avatar">C</div>
+                  <div>
+                    <div class="section-topline">Curo</div>
+                    <h3 id="trainingInsightTitle">What changed today</h3>
+                  </div>
+                </div>
+                <p id="pulseCuroText" class="curo-text"></p>
+              </section>
+            </section>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
