@@ -1,6 +1,17 @@
 const TODAY = new Date("2026-04-09T18:30:00");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LOAD_MAX = 30;
+const BODY_MAP_VISIBLE_THRESHOLD = 0.3;
+const TOP_ZONE_THRESHOLD = 0.12;
+const POSITIVE_SLOPE_THRESHOLD = 0.04;
+
+const BODY_ASSET_LIBRARY = {
+  shoulders: { shoulders: 1 },
+  arms: { arms: 0.8, shoulders: 0.2 },
+  chest: { chest: 0.8, shoulders: 0.2 },
+  back: { back: 0.8, core: 0.2 },
+  legs: { quads: 0.32, glutes: 0.3, hamstrings: 0.22, calves: 0.16 },
+};
 
 const GOAL_LIBRARY = {
   weight_loss: {
@@ -41,11 +52,61 @@ const SUPPORT_LIBRARY = {
 };
 
 const FORMAT_LIBRARY = {
-  Yoga: { intensity: 3, zones: ["hamstrings", "core", "back"] },
-  Boxing: { intensity: 7, zones: ["shoulders", "arms", "core", "cardio"] },
-  HRX: { intensity: 8, zones: ["quads", "glutes", "core", "shoulders", "cardio"] },
-  "Strength & Conditioning": { intensity: 7, zones: ["back", "glutes", "quads", "arms"] },
-  Burn: { intensity: 6, zones: ["quads", "glutes", "core", "cardio"] },
+  Yoga: {
+    intensity: 3,
+    zoneWeights: {
+      hamstrings: 0.95,
+      core: 0.75,
+      back: 0.7,
+      shoulders: 0.35,
+      glutes: 0.3,
+    },
+  },
+  Boxing: {
+    intensity: 7,
+    zoneWeights: {
+      shoulders: 1,
+      arms: 0.95,
+      core: 0.75,
+      cardio: 0.95,
+      chest: 0.45,
+      back: 0.25,
+    },
+  },
+  HRX: {
+    intensity: 8,
+    zoneWeights: {
+      quads: 1,
+      glutes: 0.85,
+      core: 0.8,
+      shoulders: 0.55,
+      cardio: 0.7,
+      calves: 0.35,
+      arms: 0.2,
+    },
+  },
+  "Strength & Conditioning": {
+    intensity: 7,
+    zoneWeights: {
+      back: 0.8,
+      glutes: 0.75,
+      quads: 0.65,
+      arms: 0.6,
+      chest: 0.5,
+      core: 0.35,
+    },
+  },
+  Burn: {
+    intensity: 6,
+    zoneWeights: {
+      quads: 0.9,
+      glutes: 0.8,
+      core: 0.75,
+      cardio: 0.85,
+      calves: 0.4,
+      hamstrings: 0.35,
+    },
+  },
 };
 
 const ZONE_LIBRARY = {
