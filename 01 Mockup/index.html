@@ -31,16 +31,23 @@
             <button id="addUserButton" class="ghost-button compact-button" type="button">Add</button>
           </div>
           <div id="userOptions" class="control-stack"></div>
+          <div class="control-action-grid">
+            <button id="resetSelectedUserButton" class="ghost-button" type="button">Reset selected</button>
+            <button id="deleteSelectedUserButton" class="ghost-button" type="button">Delete selected</button>
+          </div>
+          <button id="resetAllUsersButton" class="ghost-button full-width" type="button">Reset all users</button>
         </section>
 
         <section class="control-section">
-          <div class="section-topline">Do a workout</div>
-          <p id="workoutLogHint" class="support-copy">
-            Log a class for the selected member and the Pulse will update immediately.
+          <div class="section-topline">Time</div>
+          <p class="support-copy">
+            Move time forward to show how the Pulse cools when a member misses sessions.
           </p>
-          <div id="workoutLogActions" class="control-stack"></div>
-          <div id="workoutHistoryList" class="control-stack"></div>
-          <p id="workoutHistoryMeta" class="support-copy save-status">No workouts logged yet.</p>
+          <div class="time-status">
+            <span>Viewing date</span>
+            <strong id="timeControlLabel">Thu, 9 Apr 2026</strong>
+          </div>
+          <div id="timeTravelActions" class="time-travel-grid"></div>
         </section>
 
         <section class="summary-card">
@@ -74,7 +81,6 @@
           <p id="saveStatus" class="support-copy save-status">
             Progress is saved automatically for each user on this browser.
           </p>
-          <button id="resetDemo" class="ghost-button full-width" type="button">Reset saved users</button>
         </section>
       </aside>
 
@@ -104,6 +110,7 @@
         <nav class="product-tabs" aria-label="Cult Pulse tabs">
           <button class="tab-button active" data-tab-target="goal" type="button">Goal</button>
           <button class="tab-button" data-tab-target="pulse" type="button">Your Pulse</button>
+          <button class="tab-button" data-tab-target="log" type="button">Log Workout</button>
         </nav>
 
         <section class="tab-stage">
@@ -202,31 +209,55 @@
                       <div class="body-figure body-figure-front">
                         <img
                           class="body-reference body-reference-base"
-                          src="../99 Isolated muscle group SVGs/front-base.svg"
+                          src="../99 v2 Body Map Images (from app)/fullbody_front.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-front-shoulders"
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="shoulders"
-                          src="../99 Isolated muscle group SVGs/front-shoulder.svg"
+                          src="../99 v2 Body Map Images (from app)/shoulders_front.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-front-arms"
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="arms"
-                          src="../99 Isolated muscle group SVGs/front-arms.svg"
+                          src="../99 v2 Body Map Images (from app)/arms_front.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-front-chest"
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="chest"
-                          src="../99 Isolated muscle group SVGs/front-chest.svg"
+                          src="../99 v2 Body Map Images (from app)/chest_front.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-front-legs"
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="core"
+                          src="../99 v2 Body Map Images (from app)/abs_front.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="back"
+                          src="../99 v2 Body Map Images (from app)/lats_front.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="legs"
-                          src="../99 Isolated muscle group SVGs/front-legs.svg"
+                          src="../99 v2 Body Map Images (from app)/hip_flexors_front.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="legs"
+                          src="../99 v2 Body Map Images (from app)/quads_front.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="legs"
+                          src="../99 v2 Body Map Images (from app)/lower_body_front.png"
                           alt=""
                         />
                       </div>
@@ -234,31 +265,61 @@
                       <div class="body-figure body-figure-back">
                         <img
                           class="body-reference body-reference-base"
-                          src="../99 Isolated muscle group SVGs/back-base.svg"
+                          src="../99 v2 Body Map Images (from app)/fullbody_back.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-back-shoulders"
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="shoulders"
-                          src="../99 Isolated muscle group SVGs/back-shoulder.svg"
+                          src="../99 v2 Body Map Images (from app)/shoulders_back.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-back-arms"
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="shoulders"
+                          src="../99 v2 Body Map Images (from app)/traps_back.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="arms"
-                          src="../99 Isolated muscle group SVGs/back-arms.svg"
+                          src="../99 v2 Body Map Images (from app)/arms_back.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-back-back"
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="arms"
+                          src="../99 v2 Body Map Images (from app)/triceps_back.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="back"
-                          src="../99 Isolated muscle group SVGs/back-back.svg"
+                          src="../99 v2 Body Map Images (from app)/lats_back.png"
                           alt=""
                         />
                         <img
-                          class="body-reference body-reference-overlay body-reference-overlay-back-legs"
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="back"
+                          src="../99 v2 Body Map Images (from app)/lower_back_back.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
                           data-asset-zone="legs"
-                          src="../99 Isolated muscle group SVGs/back-legs.svg"
+                          src="../99 v2 Body Map Images (from app)/glutes_back.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="legs"
+                          src="../99 v2 Body Map Images (from app)/hamstrings_back.png"
+                          alt=""
+                        />
+                        <img
+                          class="body-reference body-reference-overlay"
+                          data-asset-zone="legs"
+                          src="../99 v2 Body Map Images (from app)/lower_body_back.png"
                           alt=""
                         />
                       </div>
@@ -281,7 +342,7 @@
                       <span id="loadStatusBadge" class="load-badge">Below target</span>
                       <span>High</span>
                     </div>
-                    <p id="weeklyLoadNarrative" class="section-copy">Your latest workout moved the week forward, but the weekly view stays descriptive rather than prescriptive.</p>
+                    <p id="weeklyLoadNarrative" class="section-copy">Latest workout today. This week is still building.</p>
                   </section>
 
                   <section class="pulse-side-card">
@@ -305,6 +366,48 @@
                 </div>
               </div>
 
+            </section>
+          </article>
+
+          <article class="tab-screen" data-tab="log">
+            <section class="log-workout-card">
+              <div class="log-workout-header">
+                <div>
+                  <div class="section-topline">Workout log</div>
+                  <h2 id="logWorkoutTitle">Log a workout</h2>
+                </div>
+                <div id="logWorkoutStepCount" class="step-count">Step 1 of 2</div>
+              </div>
+
+              <div class="log-workout-grid">
+                <section id="logWorkoutSourceSection" class="log-workout-section">
+                  <div class="section-topline">Source</div>
+                  <h3>How did you train?</h3>
+                  <div id="logWorkoutSourceChoices" class="log-choice-stack"></div>
+                </section>
+
+                <section id="logWorkoutActivitySection" class="log-workout-section">
+                  <div class="section-topline">Activity</div>
+                  <h3 id="logWorkoutActivityTitle">Choose the activity</h3>
+                  <div id="logWorkoutActivityChoices" class="log-choice-stack"></div>
+                </section>
+              </div>
+
+              <div class="log-workout-footer">
+                <p id="logWorkoutMeta" class="section-copy">
+                  Pick the workout that just happened and the body map, load, and adherence will update.
+                </p>
+                <div class="log-workout-actions">
+                  <button id="logWorkoutBackButton" class="ghost-button" type="button">Back</button>
+                  <button id="logWorkoutButton" class="primary-button" type="button">Log workout</button>
+                </div>
+              </div>
+
+              <section class="log-history-card">
+                <div class="section-topline">Recent activity</div>
+                <div id="logWorkoutHistoryList" class="control-stack"></div>
+                <p id="logWorkoutHistoryMeta" class="support-copy save-status">No workouts logged yet.</p>
+              </section>
             </section>
           </article>
         </section>
