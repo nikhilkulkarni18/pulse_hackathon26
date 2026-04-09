@@ -49,16 +49,70 @@ const FORMAT_LIBRARY = {
 };
 
 const ZONE_LIBRARY = {
-  shoulders: { label: "Shoulders", decayDays: 11 },
-  arms: { label: "Arms", decayDays: 11 },
-  chest: { label: "Chest", decayDays: 11 },
-  core: { label: "Core", decayDays: 10 },
-  back: { label: "Back", decayDays: 11 },
-  glutes: { label: "Glutes", decayDays: 11 },
-  quads: { label: "Quads", decayDays: 11 },
-  hamstrings: { label: "Hamstrings", decayDays: 9 },
-  calves: { label: "Calves", decayDays: 10 },
-  cardio: { label: "Cardio", decayDays: 5 },
+  shoulders: { label: "Shoulders", halfLifeDays: 5, activationTarget: 5.6 },
+  arms: { label: "Arms", halfLifeDays: 5, activationTarget: 5.6 },
+  chest: { label: "Chest", halfLifeDays: 5, activationTarget: 5.4 },
+  core: { label: "Core", halfLifeDays: 4, activationTarget: 5.0 },
+  back: { label: "Back", halfLifeDays: 5, activationTarget: 5.8 },
+  glutes: { label: "Glutes", halfLifeDays: 5.5, activationTarget: 6.2 },
+  quads: { label: "Quads", halfLifeDays: 5.5, activationTarget: 6.2 },
+  hamstrings: { label: "Hamstrings", halfLifeDays: 4, activationTarget: 4.6 },
+  calves: { label: "Calves", halfLifeDays: 4, activationTarget: 4.4 },
+  cardio: { label: "Cardio", halfLifeDays: 3, activationTarget: 4.0 },
+};
+
+const GOAL_ZONE_PRIORITY = {
+  weight_loss: {
+    cardio: 1,
+    core: 0.92,
+    quads: 0.82,
+    glutes: 0.82,
+    hamstrings: 0.6,
+    calves: 0.55,
+    shoulders: 0.48,
+    arms: 0.4,
+    back: 0.45,
+    chest: 0.34,
+  },
+  strength: {
+    quads: 1,
+    glutes: 0.95,
+    back: 0.9,
+    shoulders: 0.78,
+    arms: 0.75,
+    chest: 0.72,
+    core: 0.62,
+    hamstrings: 0.56,
+    calves: 0.38,
+    cardio: 0.24,
+  },
+  general_fitness: {
+    cardio: 0.82,
+    core: 0.8,
+    quads: 0.74,
+    glutes: 0.74,
+    back: 0.68,
+    shoulders: 0.64,
+    arms: 0.58,
+    hamstrings: 0.6,
+    calves: 0.52,
+    chest: 0.56,
+  },
+};
+
+const AREA_GROUPS = {
+  cardio: { label: "Cardio", inline: "cardio", zones: ["cardio"] },
+  lower_body: {
+    label: "Lower-body signal",
+    inline: "lower body",
+    zones: ["quads", "glutes", "hamstrings", "calves"],
+  },
+  upper_body: {
+    label: "Upper-body signal",
+    inline: "upper body",
+    zones: ["shoulders", "arms", "chest", "back"],
+  },
+  core: { label: "Core activation", inline: "core", zones: ["core"] },
 };
 
 const PROFILE_MODES = {
@@ -254,11 +308,15 @@ const loadStatusBadge = document.getElementById("loadStatusBadge");
 const goalAdherenceTitle = document.getElementById("goalAdherenceTitle");
 const goalAdherenceText = document.getElementById("goalAdherenceText");
 const topZonesLabel = document.getElementById("topZonesLabel");
+const bodyCoverageLabel = document.getElementById("bodyCoverageLabel");
 const primaryAction = document.getElementById("primaryAction");
 const trainingInsightTitle = document.getElementById("trainingInsightTitle");
 const pulseCuroText = document.getElementById("pulseCuroText");
+const bodyReferenceBase = document.getElementById("bodyReferenceBase");
 const bodyReferenceNodes = [...document.querySelectorAll("[data-asset-zone]")];
 const hotspotNodes = [...document.querySelectorAll("[data-hotspot]")];
+let bodyReferenceOverlaysReady = false;
+const bodyAssetPreparation = prepareBodyReferenceOverlays();
 
 function cloneProfile(modeKey) {
   const source = PROFILE_MODES[modeKey].profile;
@@ -279,6 +337,10 @@ function diffDays(later, earlier) {
   return Math.round((startOfDay(later) - startOfDay(earlier)) / DAY_MS);
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function formatFullDate(date) {
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
@@ -286,6 +348,98 @@ function formatFullDate(date) {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function loadImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Failed to load image: ${source}`));
+    image.src = source;
+  });
+}
+
+function extractOverlayMask(baseImage, overlayImage) {
+  const width = baseImage.naturalWidth || baseImage.width;
+  const height = baseImage.naturalHeight || baseImage.height;
+  const bodyRegion = {
+    left: width * 0.16,
+    right: width * 0.84,
+    top: height * 0.18,
+    bottom: height * 0.76,
+  };
+  const baseCanvas = document.createElement("canvas");
+  const overlayCanvas = document.createElement("canvas");
+  baseCanvas.width = overlayCanvas.width = width;
+  baseCanvas.height = overlayCanvas.height = height;
+
+  const baseContext = baseCanvas.getContext("2d", { willReadFrequently: true });
+  const overlayContext = overlayCanvas.getContext("2d", { willReadFrequently: true });
+  baseContext.drawImage(baseImage, 0, 0, width, height);
+  overlayContext.drawImage(overlayImage, 0, 0, width, height);
+
+  const basePixels = baseContext.getImageData(0, 0, width, height);
+  const overlayPixels = overlayContext.getImageData(0, 0, width, height);
+  const outputPixels = overlayContext.createImageData(width, height);
+
+  for (let index = 0; index < overlayPixels.data.length; index += 4) {
+    const pixelNumber = index / 4;
+    const x = pixelNumber % width;
+    const y = Math.floor(pixelNumber / width);
+
+    if (x < bodyRegion.left || x > bodyRegion.right || y < bodyRegion.top || y > bodyRegion.bottom) {
+      continue;
+    }
+
+    const baseR = basePixels.data[index];
+    const baseG = basePixels.data[index + 1];
+    const baseB = basePixels.data[index + 2];
+    const overlayR = overlayPixels.data[index];
+    const overlayG = overlayPixels.data[index + 1];
+    const overlayB = overlayPixels.data[index + 2];
+
+    const diff =
+      Math.abs(overlayR - baseR) + Math.abs(overlayG - baseG) + Math.abs(overlayB - baseB);
+    const greenDominance = overlayG - Math.max(overlayR, overlayB);
+    const brightnessGain =
+      (overlayR + overlayG + overlayB) / 3 - (baseR + baseG + baseB) / 3;
+
+    if (diff < 70 || (greenDominance < 14 && brightnessGain < 26)) {
+      continue;
+    }
+
+    const maskStrength = clamp((diff - 70) / 150, 0, 1);
+    const alpha = Math.round(255 * Math.max(maskStrength, clamp((greenDominance + brightnessGain) / 140, 0, 1)));
+
+    outputPixels.data[index] = overlayR;
+    outputPixels.data[index + 1] = overlayG;
+    outputPixels.data[index + 2] = overlayB;
+    outputPixels.data[index + 3] = alpha;
+  }
+
+  overlayContext.clearRect(0, 0, width, height);
+  overlayContext.putImageData(outputPixels, 0, 0);
+  return overlayCanvas.toDataURL("image/png");
+}
+
+async function prepareBodyReferenceOverlays() {
+  if (!bodyReferenceBase || !bodyReferenceNodes.length) {
+    return;
+  }
+
+  try {
+    const baseImage = await loadImage(bodyReferenceBase.src);
+    await Promise.all(
+      bodyReferenceNodes.map(async (node) => {
+        const overlayImage = await loadImage(node.src);
+        node.src = extractOverlayMask(baseImage, overlayImage);
+      }),
+    );
+    bodyReferenceOverlaysReady = true;
+    renderPulse();
+  } catch (error) {
+    console.warn("Could not prepare body reference overlays.", error);
+  }
 }
 
 function getGoalConfig() {
@@ -311,7 +465,7 @@ function getScenarioWorkouts() {
       id: `w${index + 1}`,
       ...workout,
       intensity: details.intensity,
-      zones: details.zones,
+      zoneWeights: { ...details.zoneWeights },
       dateObject: new Date(`${workout.date}T09:00:00`),
     };
   });
@@ -350,34 +504,360 @@ function getWeeklyLoadSummary() {
   };
 }
 
-function getPulseStates() {
-  const workouts = getScenarioWorkouts();
+function getPulseStates(referenceDate = state.currentDate, workouts = getScenarioWorkouts()) {
   const pulseStates = Object.fromEntries(
-    Object.keys(ZONE_LIBRARY).map((zone) => [zone, { score: 0, lastTrained: null }]),
+    Object.keys(ZONE_LIBRARY).map((zone) => [
+      zone,
+      {
+        rawStimulus: 0,
+        activation: 0,
+        hitCount: 0,
+        freshness: 0,
+        lastTrained: null,
+        daysSinceLast: null,
+      },
+    ]),
   );
 
   workouts.forEach((workout) => {
-    workout.zones.forEach((zone) => {
-      const decayFactor = Math.exp(-diffDays(state.currentDate, workout.dateObject) / ZONE_LIBRARY[zone].decayDays);
-      pulseStates[zone].score += (workout.intensity / 8) * decayFactor;
+    if (workout.dateObject > referenceDate) {
+      return;
+    }
+
+    Object.entries(workout.zoneWeights).forEach(([zone, weight]) => {
+      const zoneConfig = ZONE_LIBRARY[zone];
+      const daysAgo = Math.max(0, diffDays(referenceDate, workout.dateObject));
+      const decayFactor = Math.pow(0.5, daysAgo / zoneConfig.halfLifeDays);
+      const stimulus = workout.intensity * weight;
+
+      pulseStates[zone].rawStimulus += stimulus * decayFactor;
+      pulseStates[zone].freshness = Math.max(
+        pulseStates[zone].freshness,
+        clamp(1 - daysAgo / (zoneConfig.halfLifeDays * 2), 0, 1),
+      );
+      pulseStates[zone].hitCount += 1;
       if (!pulseStates[zone].lastTrained || workout.dateObject > pulseStates[zone].lastTrained) {
         pulseStates[zone].lastTrained = workout.dateObject;
       }
     });
   });
 
+  Object.entries(pulseStates).forEach(([zone, zoneState]) => {
+    if (!zoneState.lastTrained) {
+      return;
+    }
+
+    zoneState.daysSinceLast = Math.max(0, diffDays(referenceDate, zoneState.lastTrained));
+
+    const repeatedStimulusMultiplier = 1 + Math.min(0.24, Math.max(0, zoneState.hitCount - 1) * 0.08);
+    const normalizedActivation =
+      1 - Math.exp((-zoneState.rawStimulus * repeatedStimulusMultiplier) / ZONE_LIBRARY[zone].activationTarget);
+
+    zoneState.activation = clamp(normalizedActivation, 0, 1);
+  });
+
   return pulseStates;
 }
 
-function getTopZones(pulseStates) {
+function getTopZoneKeys(pulseStates, limit = 3) {
   return Object.entries(pulseStates)
-    .sort((a, b) => b[1].score - a[1].score)
-    .slice(0, 3)
-    .map(([zone]) => ZONE_LIBRARY[zone].label);
+    .filter(([, zoneState]) => zoneState.activation > TOP_ZONE_THRESHOLD)
+    .sort((a, b) => b[1].activation - a[1].activation)
+    .slice(0, limit)
+    .map(([zone]) => zone);
+}
+
+function getTopZoneAverage(pulseStates, limit = 3) {
+  const topZones = getTopZoneKeys(pulseStates, limit);
+  if (!topZones.length) {
+    return 0;
+  }
+
+  const total = topZones.reduce((sum, zone) => sum + pulseStates[zone].activation, 0);
+  return total / topZones.length;
+}
+
+function getVisibleZoneCount(pulseStates) {
+  return Object.values(pulseStates).filter((zoneState) => zoneState.activation >= BODY_MAP_VISIBLE_THRESHOLD).length;
+}
+
+function getCoverageLabelFromCount(activeCount) {
+  return activeCount === 1 ? "1 zone lit" : `${activeCount} zones lit`;
+}
+
+function getWeightedAssetScore(zoneWeights, pulseStates) {
+  const { total, weightTotal } = Object.entries(zoneWeights).reduce(
+    (accumulator, [zone, weight]) => {
+      accumulator.total += (pulseStates[zone]?.activation || 0) * weight;
+      accumulator.weightTotal += weight;
+      return accumulator;
+    },
+    { total: 0, weightTotal: 0 },
+  );
+
+  return weightTotal ? total / weightTotal : 0;
+}
+
+function getBodyAssetStates(pulseStates) {
+  return Object.fromEntries(
+    Object.entries(BODY_ASSET_LIBRARY).map(([asset, zoneWeights]) => [
+      asset,
+      getWeightedAssetScore(zoneWeights, pulseStates),
+    ]),
+  );
+}
+
+function getDaysSinceLastWorkout(workouts, referenceDate) {
+  const latestWorkout = workouts
+    .filter((workout) => workout.dateObject <= referenceDate)
+    .sort((a, b) => b.dateObject - a.dateObject)[0];
+
+  if (!latestWorkout) {
+    return null;
+  }
+
+  return Math.max(0, diffDays(referenceDate, latestWorkout.dateObject));
+}
+
+function getHistoricalPulseSnapshots(referenceDate, workouts) {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(referenceDate, -index);
+    const zones = getPulseStates(date, workouts);
+    return {
+      date,
+      zones,
+      visibleZoneCount: getVisibleZoneCount(zones),
+      topZoneAverage: getTopZoneAverage(zones),
+    };
+  });
+}
+
+function getPeakZoneActivations(snapshots) {
+  return Object.fromEntries(
+    Object.keys(ZONE_LIBRARY).map((zone) => [
+      zone,
+      Math.max(...snapshots.map((snapshot) => snapshot.zones[zone].activation)),
+    ]),
+  );
+}
+
+function getCoolingRiskState(visibleDrop, topZoneDeclineRatio, daysSinceLastWorkout) {
+  if (
+    visibleDrop >= 3 ||
+    topZoneDeclineRatio >= 0.3 ||
+    (daysSinceLastWorkout !== null && daysSinceLastWorkout >= 7)
+  ) {
+    return "dropoff_risk";
+  }
+
+  if (visibleDrop >= 2 || topZoneDeclineRatio >= 0.15) {
+    return "cooling";
+  }
+
+  if (visibleDrop >= 1 || topZoneDeclineRatio >= 0.1) {
+    return "early_cooling";
+  }
+
+  return "stable";
+}
+
+function getGoalZonePriorities(goalKey) {
+  return GOAL_ZONE_PRIORITY[goalKey];
+}
+
+function getZoneOpportunity(summary, zone, goalKey) {
+  const goalWeight = getGoalZonePriorities(goalKey)[zone] || 0;
+  const currentActivation = summary.zones[zone].activation;
+  const peakActivation = summary.peakZoneActivations7d[zone] || currentActivation;
+  const coolingGap = Math.max(0, peakActivation - currentActivation);
+  const baseGap = Math.max(0, 1 - currentActivation);
+  const coolingBias = summary.coolingRisk === "stable" ? 0.42 : 0.7;
+
+  return goalWeight * ((coolingGap * 1.45) + (baseGap * coolingBias));
+}
+
+function getFocusArea(summary, goalKey) {
+  const areaScores = Object.entries(AREA_GROUPS).map(([key, area]) => {
+    const score = area.zones.reduce((sum, zone) => sum + getZoneOpportunity(summary, zone, goalKey), 0);
+    return { key, ...area, score };
+  });
+
+  return areaScores.sort((a, b) => b.score - a.score)[0];
+}
+
+function getRecommendedFormat(summary, goalKey) {
+  const formatScores = Object.entries(FORMAT_LIBRARY).map(([format, details]) => {
+    const stimulusScore = Object.entries(details.zoneWeights).reduce((sum, [zone, weight]) => {
+      return sum + weight * getZoneOpportunity(summary, zone, goalKey);
+    }, 0);
+
+    const breadth = Object.values(details.zoneWeights).filter((weight) => weight >= 0.45).length;
+    const breadthBonus =
+      goalKey === "strength" ? breadth * 0.03 : breadth * (goalKey === "weight_loss" ? 0.05 : 0.06);
+    const intensityBonus = (details.intensity / 8) * (goalKey === "strength" ? 0.08 : 0.04);
+
+    return {
+      format,
+      score: stimulusScore + breadthBonus + intensityBonus,
+    };
+  });
+
+  return formatScores.sort((a, b) => b.score - a.score)[0]?.format || null;
+}
+
+function formatZones(zoneKeys) {
+  const labels = zoneKeys.map((zone) => ZONE_LIBRARY[zone].label);
+  if (labels.length <= 1) {
+    return labels[0] || "your recent signal";
+  }
+
+  if (labels.length === 2) {
+    return `${labels[0]} and ${labels[1]}`;
+  }
+
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
+}
+
+function getMomentumState({
+  visibleZoneCount,
+  coolingRisk,
+  visibleDrop,
+  topZoneDeclineRatio,
+  hasRecentWorkout,
+  improvedFromYesterday,
+  previousWasCooling,
+}) {
+  if (visibleZoneCount < 2) {
+    return "flat";
+  }
+
+  if (hasRecentWorkout && improvedFromYesterday && previousWasCooling) {
+    return "recovering";
+  }
+
+  if (hasRecentWorkout && improvedFromYesterday) {
+    return "fresh_gain";
+  }
+
+  if (coolingRisk === "dropoff_risk") {
+    return "slipping";
+  }
+
+  if (coolingRisk === "cooling" && (visibleDrop >= 2 || topZoneDeclineRatio >= 0.3)) {
+    return "slipping";
+  }
+
+  if (coolingRisk === "cooling" || coolingRisk === "early_cooling") {
+    return "cooling";
+  }
+
+  return "worth_protecting";
+}
+
+function getRecoveryEffortState(coolingRisk, visibleZoneCount, daysSinceLastWorkout) {
+  if (
+    coolingRisk === "dropoff_risk" &&
+    (visibleZoneCount <= 1 || (daysSinceLastWorkout !== null && daysSinceLastWorkout > 10))
+  ) {
+    return "restart";
+  }
+
+  if (
+    coolingRisk === "early_cooling" ||
+    coolingRisk === "stable" ||
+    (coolingRisk === "cooling" && daysSinceLastWorkout !== null && daysSinceLastWorkout <= 6)
+  ) {
+    return "easy";
+  }
+
+  if (coolingRisk === "cooling") {
+    return "moderate";
+  }
+
+  return "restart";
+}
+
+function getPulseSummary(referenceDate = state.currentDate) {
+  const workouts = getScenarioWorkouts();
+  const zones = getPulseStates(referenceDate, workouts);
+  const visibleZoneCount = getVisibleZoneCount(zones);
+  const topZones = getTopZoneKeys(zones);
+  const topZoneAverage = getTopZoneAverage(zones);
+  const coverageLabel = getCoverageLabelFromCount(visibleZoneCount);
+  const historicalSnapshots = getHistoricalPulseSnapshots(referenceDate, workouts);
+  const peakVisibleZones7d = Math.max(...historicalSnapshots.map((snapshot) => snapshot.visibleZoneCount));
+  const peakTopZoneAvg7d = Math.max(...historicalSnapshots.map((snapshot) => snapshot.topZoneAverage));
+  const peakZoneActivations7d = getPeakZoneActivations(historicalSnapshots);
+  const daysSinceLastWorkout = getDaysSinceLastWorkout(workouts, referenceDate);
+  const visibleDrop = Math.max(0, peakVisibleZones7d - visibleZoneCount);
+  const topZoneDeclineRatio =
+    peakTopZoneAvg7d > 0 ? Math.max(0, (peakTopZoneAvg7d - topZoneAverage) / peakTopZoneAvg7d) : 0;
+  const previousSnapshot = historicalSnapshots[1] || historicalSnapshots[0];
+  const previousSnapshots = historicalSnapshots.slice(1);
+  const previousPeakVisible = previousSnapshots.length
+    ? Math.max(...previousSnapshots.map((snapshot) => snapshot.visibleZoneCount))
+    : previousSnapshot.visibleZoneCount;
+  const previousPeakTopZoneAvg = previousSnapshots.length
+    ? Math.max(...previousSnapshots.map((snapshot) => snapshot.topZoneAverage))
+    : previousSnapshot.topZoneAverage;
+  const previousVisibleDrop = Math.max(0, previousPeakVisible - previousSnapshot.visibleZoneCount);
+  const previousTopZoneDeclineRatio =
+    previousPeakTopZoneAvg > 0
+      ? Math.max(0, (previousPeakTopZoneAvg - previousSnapshot.topZoneAverage) / previousPeakTopZoneAvg)
+      : 0;
+  const improvedFromYesterday =
+    visibleZoneCount > previousSnapshot.visibleZoneCount ||
+    topZoneAverage - previousSnapshot.topZoneAverage >= POSITIVE_SLOPE_THRESHOLD;
+  const hasRecentWorkout = daysSinceLastWorkout !== null && daysSinceLastWorkout <= 1;
+  const previousWasCooling = previousVisibleDrop >= 1 || previousTopZoneDeclineRatio >= 0.1;
+  const coolingRisk = getCoolingRiskState(visibleDrop, topZoneDeclineRatio, daysSinceLastWorkout);
+  const momentumState = getMomentumState({
+    visibleZoneCount,
+    coolingRisk,
+    visibleDrop,
+    topZoneDeclineRatio,
+    hasRecentWorkout,
+    improvedFromYesterday,
+    previousWasCooling,
+  });
+  const recoveryEffort = getRecoveryEffortState(coolingRisk, visibleZoneCount, daysSinceLastWorkout);
+  const recommendedFormat = getRecommendedFormat(
+    {
+      zones,
+      peakZoneActivations7d,
+      coolingRisk,
+    },
+    state.profile.goal,
+  );
+  const focusArea = getFocusArea(
+    {
+      zones,
+      peakZoneActivations7d,
+      coolingRisk,
+    },
+    state.profile.goal,
+  );
+
+  return {
+    zones,
+    topZones,
+    topZoneAverage,
+    visibleZoneCount,
+    coverageLabel,
+    peakVisibleZones7d,
+    peakTopZoneAvg7d,
+    peakZoneActivations7d,
+    momentumState,
+    coolingRisk,
+    recoveryEffort,
+    recommendedFormat,
+    focusArea,
+    daysSinceLastWorkout,
+  };
 }
 
 function toPercent(value, max) {
-  return `${Math.max(0, Math.min(100, (value / max) * 100))}%`;
+  return `${clamp((value / max) * 100, 0, 100)}%`;
 }
 
 function markPlanDirty() {
@@ -557,42 +1037,131 @@ function renderGoal() {
   }
 }
 
-function renderPulseMap(pulseStates) {
-  const assetOpacities = {
-    shoulders: pulseStates.shoulders.score,
-    arms: pulseStates.arms.score,
-    chest: pulseStates.chest.score,
-    back: pulseStates.back.score,
-    legs: Math.max(
-      pulseStates.quads.score,
-      pulseStates.glutes.score,
-      pulseStates.hamstrings.score,
-      pulseStates.calves.score,
-    ),
+function getPulseNarrative(summary, weekly, goal, plannedSessions) {
+  const topZoneText = formatZones(summary.topZones);
+  const focusAreaInline = summary.focusArea?.inline || "your recent signal";
+  const focusAreaLabel = summary.focusArea?.label || "Recent signal";
+  const recommendedFormat = summary.recommendedFormat || "HRX";
+  const sessionProgress = `${weekly.sessions}/${plannedSessions} sessions are done so far.`;
+  const goalFrame =
+    state.profile.goal === "weight_loss"
+      ? "Keeping the map broad matters more than chasing a perfect score."
+      : state.profile.goal === "strength"
+        ? "The win now is repeating the right signal before it fades."
+        : "Protecting the rhythm matters more than overreaching.";
+
+  if (summary.momentumState === "fresh_gain") {
+    return {
+      headline: "Your map is waking up.",
+      pill: "Fresh gain",
+      adherenceTitle: "One more class locks this in",
+      adherenceText: `You have live signal on the map now. Another ${recommendedFormat} session this week will help the routine stick. ${sessionProgress}`,
+      actionLabel: `Protect with ${recommendedFormat}`,
+      insightTitle: "What changed today",
+      insightText: `That session activated ${topZoneText}. The next win is not intensity, it is protecting the signal before it cools.`,
+    };
+  }
+
+  if (summary.momentumState === "recovering") {
+    return {
+      headline: "You brought the signal back.",
+      pill: "Recovering",
+      adherenceTitle: "One more class keeps the comeback alive",
+      adherenceText: `That last class reversed the slide. Repeat it once more this week and the comeback will feel real. ${sessionProgress}`,
+      actionLabel: `Keep it alive with ${recommendedFormat}`,
+      insightTitle: "What changed today",
+      insightText: `That return session brought the signal back across ${topZoneText}. One more workout this week helps lock the comeback in.`,
+    };
+  }
+
+  if (summary.momentumState === "worth_protecting") {
+    return {
+      headline: "This week has momentum.",
+      pill: "Worth protecting",
+      adherenceTitle: "Protect the momentum you built",
+      adherenceText: `You have built a strong recent signal. Protect it before ${focusAreaInline} cools any further. ${sessionProgress}`,
+      actionLabel: `Protect with ${recommendedFormat}`,
+      insightTitle: "How to protect this week",
+      insightText: `Your map is broad enough to feel like momentum now. ${focusAreaLabel} is the part to watch next. ${goalFrame}`,
+    };
+  }
+
+  if (summary.momentumState === "cooling") {
+    const isEarlyCooling = summary.coolingRisk === "early_cooling";
+    return {
+      headline: isEarlyCooling ? "A couple of areas are starting to cool." : "Your pulse is cooling this week.",
+      pill: isEarlyCooling ? "Cooling early" : "Cooling",
+      adherenceTitle: `${focusAreaLabel} is starting to cool`,
+      adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class this week restores the curve while the week is still easy to save. ${sessionProgress}`,
+      actionLabel: `Restore with ${recommendedFormat}`,
+      insightTitle: isEarlyCooling ? "What is starting to cool" : "What is cooling now",
+      insightText: `The recent signal is fading, especially around ${focusAreaInline}. ${recommendedFormat} is the easiest way to widen the map again.`,
+    };
+  }
+
+  if (summary.momentumState === "slipping") {
+    return {
+      headline: summary.coolingRisk === "dropoff_risk" ? "Your map has flattened." : "Your pulse is cooling this week.",
+      pill: summary.coolingRisk === "dropoff_risk" ? "Ready to restart" : "Momentum slipping",
+      adherenceTitle: summary.coolingRisk === "dropoff_risk" ? "A single session restarts the map" : `${focusAreaLabel} is fading this week`,
+      adherenceText:
+        summary.coolingRisk === "dropoff_risk"
+          ? `The recent signal has mostly cooled off, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`
+          : `The recent signal is fading, especially around ${focusAreaInline}. One ${recommendedFormat} class is the fastest way to bring it back. ${sessionProgress}`,
+      actionLabel:
+        summary.coolingRisk === "dropoff_risk"
+          ? `Restart with ${recommendedFormat}`
+          : `Rebuild with ${recommendedFormat}`,
+      insightTitle: "What your body needs now",
+      insightText:
+        summary.coolingRisk === "dropoff_risk"
+          ? `This is a restart moment, not a failure. The easiest way back is one ${recommendedFormat} class that wakes up ${focusAreaInline} again.`
+          : `This is a recoverable dip, not a reset. A ${recommendedFormat} class would restart ${focusAreaInline} and widen the map again.`,
+    };
+  }
+
+  return {
+    headline: "Your map has flattened.",
+    pill: "Ready to restart",
+    adherenceTitle: "A single session restarts the map",
+    adherenceText: `The recent signal has mostly cooled off, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`,
+    actionLabel: `Restart with ${recommendedFormat}`,
+    insightTitle: "What your body needs now",
+    insightText: `The map has flattened, especially in ${focusAreaInline}. The easiest restart is one ${recommendedFormat} class this week.`,
   };
+}
+
+function renderPulseMap(pulseStates) {
+  const assetScores = getBodyAssetStates(pulseStates);
 
   bodyReferenceNodes.forEach((node) => {
-    const score = assetOpacities[node.dataset.assetZone] || 0;
-    node.style.opacity = `${Math.max(0, Math.min(0.95, score * 0.82))}`;
+    const score = assetScores[node.dataset.assetZone] || 0;
+    node.style.setProperty("--zone-score", score.toFixed(3));
+    if (!bodyReferenceOverlaysReady) {
+      node.style.opacity = "0";
+      return;
+    }
+    node.style.opacity = `${clamp(Math.pow(score, 0.9) * 0.98, 0, 0.98)}`;
   });
 
   hotspotNodes.forEach((node) => {
-    const score = pulseStates[node.dataset.hotspot]?.score || 0;
-    node.style.opacity = `${Math.max(0.04, Math.min(0.78, score * 0.7))}`;
-    node.style.transform = `scale(${1 + Math.min(0.18, score * 0.1)})`;
+    const score = pulseStates[node.dataset.hotspot]?.activation || 0;
+    node.style.opacity = `${clamp(score * 0.8, 0.04, 0.78)}`;
+    node.style.transform = `scale(${1 + clamp(score * 0.14, 0, 0.2)})`;
   });
 }
 
 function renderPulse() {
-  const scenario = getScenarioConfig();
   const goal = getGoalConfig();
   const weekly = getWeeklyLoadSummary();
-  const pulseStates = getPulseStates();
-  const topZones = getTopZones(pulseStates);
-  const plannedSessions = Number(state.profile.frequency);
+  const pulseSummary = getPulseSummary();
+  const narrative = getPulseNarrative(pulseSummary, weekly, goal, Number(state.profile.frequency));
 
-  pulseHeadline.textContent = scenario.pulse.headline;
-  pulseMomentumPill.textContent = scenario.pulse.momentum;
+  pulseHeadline.textContent = narrative.headline;
+  pulseMomentumPill.textContent = narrative.pill;
+  pulseMomentumPill.classList.toggle("is-cooling", pulseSummary.coolingRisk === "early_cooling");
+  pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
+  pulseMomentumPill.classList.toggle("is-recovering", pulseSummary.momentumState === "fresh_gain" || pulseSummary.momentumState === "recovering");
   pulseLoadValue.textContent = `${weekly.total} / ${goal.targetRange[0]}-${goal.targetRange[1]}`;
   pulseLoadSubtext.textContent = `${weekly.sessions} sessions this week`;
 
@@ -609,14 +1178,17 @@ function renderPulse() {
   loadStatusBadge.classList.toggle("in-range", weekly.status === "in_range");
   loadStatusBadge.classList.toggle("above", weekly.status === "above");
 
-  goalAdherenceTitle.textContent = scenario.pulse.adherenceTitle;
-  goalAdherenceText.textContent = `${scenario.pulse.adherenceText} ${weekly.sessions}/${plannedSessions} sessions are done so far.`;
-  topZonesLabel.textContent = topZones.join(", ");
-  primaryAction.textContent = scenario.action;
-  trainingInsightTitle.textContent = scenario.pulse.insightTitle;
-  pulseCuroText.textContent = scenario.pulse.insightText;
+  goalAdherenceTitle.textContent = narrative.adherenceTitle;
+  goalAdherenceText.textContent = narrative.adherenceText;
+  topZonesLabel.textContent = pulseSummary.topZones.length
+    ? pulseSummary.topZones.map((zone) => ZONE_LIBRARY[zone].label).join(", ")
+    : "Recovery";
+  bodyCoverageLabel.textContent = pulseSummary.coverageLabel;
+  primaryAction.textContent = narrative.actionLabel;
+  trainingInsightTitle.textContent = narrative.insightTitle;
+  pulseCuroText.textContent = narrative.insightText;
 
-  renderPulseMap(pulseStates);
+  renderPulseMap(pulseSummary.zones);
 }
 
 function renderAll() {
@@ -673,7 +1245,7 @@ viewPulseFromPlan.addEventListener("click", () => {
 primaryAction.addEventListener("click", () => {
   primaryAction.textContent = "Class booked";
   setTimeout(() => {
-    primaryAction.textContent = getScenarioConfig().action;
+    renderPulse();
   }, 1400);
 });
 

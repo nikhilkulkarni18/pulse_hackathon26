@@ -588,6 +588,24 @@ h3 {
   font-size: 0.86rem;
 }
 
+.pulse-state-pill.is-cooling {
+  background: rgba(255, 189, 102, 0.12);
+  border-color: rgba(255, 189, 102, 0.2);
+  color: #ffd49c;
+}
+
+.pulse-state-pill.is-risk {
+  background: rgba(255, 125, 107, 0.12);
+  border-color: rgba(255, 125, 107, 0.22);
+  color: #ffc0b6;
+}
+
+.pulse-state-pill.is-recovering {
+  background: rgba(116, 232, 255, 0.12);
+  border-color: rgba(116, 232, 255, 0.22);
+  color: #c8f8ff;
+}
+
 .pulse-main-card {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
@@ -634,6 +652,12 @@ h3 {
   opacity: 0;
   transition: opacity 280ms ease;
   mix-blend-mode: screen;
+  filter:
+    saturate(1.25)
+    brightness(calc(0.88 + (var(--zone-score, 0) * 0.4)))
+    drop-shadow(0 0 calc(6px + (var(--zone-score, 0) * 16px)) rgba(120, 255, 205, 0.55))
+    drop-shadow(0 0 calc(12px + (var(--zone-score, 0) * 24px)) rgba(120, 255, 205, 0.28));
+  transform: scale(calc(1 + (var(--zone-score, 0) * 0.012)));
 }
 
 .body-hotspot {
@@ -728,12 +752,16 @@ h3 {
 .adherence-meta {
   display: grid;
   gap: 0.2rem;
-  margin: 0.9rem 0 1rem;
+  margin: 0.9rem 0 0;
 }
 
 .adherence-meta span {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.pulse-side-card .adherence-meta:last-of-type {
+  margin-bottom: 1rem;
 }
 
 .curo-avatar {
