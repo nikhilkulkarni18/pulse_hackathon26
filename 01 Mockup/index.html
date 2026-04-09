@@ -26,26 +26,35 @@
 
         <section class="control-section">
           <div class="section-topline">Users</div>
+          <div class="inline-control-row">
+            <input id="newUserNameInput" class="control-input" type="text" placeholder="New member name" />
+            <button id="addUserButton" class="ghost-button compact-button" type="button">Add</button>
+          </div>
           <div id="userOptions" class="control-stack"></div>
         </section>
 
         <section class="control-section">
-          <div class="section-topline">Workout progression</div>
-          <div id="workoutProgressOptions" class="control-stack"></div>
+          <div class="section-topline">Do a workout</div>
+          <p id="workoutLogHint" class="support-copy">
+            Log a class for the selected member and the Pulse will update immediately.
+          </p>
+          <div id="workoutLogActions" class="control-stack"></div>
+          <div id="workoutHistoryList" class="control-stack"></div>
+          <p id="workoutHistoryMeta" class="support-copy save-status">No workouts logged yet.</p>
         </section>
 
         <section class="summary-card">
           <div class="summary-row">
             <span>Member</span>
-            <strong id="memberName">Aisha Rao</strong>
+            <strong id="memberName">No member selected</strong>
           </div>
           <div class="summary-row">
             <span>Goal</span>
-            <strong id="summaryGoal">Weight loss</strong>
+            <strong id="summaryGoal">No goal yet</strong>
           </div>
           <div class="summary-row">
-            <span>Progress view</span>
-            <strong id="summaryScenario">Workout 2 of 4</strong>
+            <span>Activity</span>
+            <strong id="summaryScenario">No workouts yet</strong>
           </div>
           <div class="summary-row">
             <span>Weekly target</span>
@@ -60,7 +69,7 @@
         <section class="timeline-card">
           <h2>Saved progress</h2>
           <p id="progressDescription" class="support-copy">
-            Viewing Aisha after workout 2, with progress saved locally when you switch between users.
+            Add a user from the left pane to start goal setup and workout tracking.
           </p>
           <p id="saveStatus" class="support-copy save-status">
             Progress is saved automatically for each user on this browser.
@@ -73,7 +82,7 @@
         <header class="product-header">
           <div>
             <p class="eyebrow">Cult Pulse</p>
-            <h1 id="welcomeTitle">Good evening, Aisha</h1>
+            <h1 id="welcomeTitle">Create your first member</h1>
           </div>
           <div class="header-meta">
             <span id="currentDateLabel">Thu, 9 Apr 2026</span>
@@ -162,6 +171,7 @@
               <div class="pulse-card-top">
                 <div>
                   <div class="section-topline">Curo insight</div>
+                  <div id="pulseSnapshotBadge" class="pulse-snapshot-badge">No workouts logged yet</div>
                   <h2 id="pulseHeadline">You are close to your target this week</h2>
                   <p id="pulseEffortSummary" class="section-copy">A solid session that moves the week forward.</p>
                 </div>

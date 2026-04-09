@@ -277,125 +277,9 @@ const AREA_GROUPS = {
   core: { label: "Core activation", inline: "core", zones: ["core"] },
 };
 
-const STORAGE_KEY = "cult-pulse-demo-user-progress-v1";
+const STORAGE_KEY = "cult-pulse-demo-user-progress-v2";
 
-const USER_LIBRARY = {
-  aisha: {
-    label: "Aisha Rao",
-    description: "Weight-loss member rebuilding her weekly rhythm.",
-    profile: {
-      name: "Aisha Rao",
-      goal: "weight_loss",
-      frequency: "4",
-      startingPoint: "restarting",
-      splitPreference: "upper_lower",
-    },
-    planCreated: true,
-    defaultWorkoutStep: 2,
-    workouts: [
-      { date: "2026-03-29", format: "Yoga", durationMinutes: 45, source: "cult_class" },
-      {
-        date: "2026-04-02",
-        format: "Boxing",
-        durationMinutes: 44,
-        source: "apple_health",
-        effortRating: 7,
-      },
-      {
-        date: "2026-04-06",
-        format: "HRX",
-        durationMinutes: 50,
-        source: "health_connect",
-        effortRating: 8,
-        heartRateSummary: {
-          avgBpm: 159,
-          maxBpm: 184,
-          zoneMinutes: { zone1: 2, zone2: 5, zone3: 15, zone4: 19, zone5: 9 },
-        },
-      },
-      { date: "2026-04-08", format: "Yoga", durationMinutes: 48, source: "cult_class" },
-      {
-        date: "2026-04-09",
-        format: "Boxing",
-        durationMinutes: 45,
-        source: "apple_health",
-        effortRating: 7,
-        heartRateSummary: {
-          avgBpm: 152,
-          maxBpm: 178,
-          zoneMinutes: { zone1: 3, zone2: 7, zone3: 18, zone4: 13, zone5: 4 },
-        },
-      },
-    ],
-  },
-  rohan: {
-    label: "Rohan Singh",
-    description: "Strength user layering volume across the week.",
-    profile: {
-      name: "Rohan Singh",
-      goal: "strength",
-      frequency: "5",
-      startingPoint: "regular",
-      splitPreference: "two_muscles",
-    },
-    planCreated: true,
-    defaultWorkoutStep: 3,
-    workouts: [
-      {
-        date: "2026-03-24",
-        format: "Strength & Conditioning",
-        durationMinutes: 50,
-        source: "health_connect",
-        effortRating: 7,
-      },
-      { date: "2026-03-29", format: "Burn", durationMinutes: 45, source: "cult_class" },
-      {
-        date: "2026-04-03",
-        format: "Strength & Conditioning",
-        durationMinutes: 52,
-        source: "apple_health",
-        effortRating: 8,
-      },
-      {
-        date: "2026-04-07",
-        format: "HRX",
-        durationMinutes: 50,
-        source: "health_connect",
-        effortRating: 8,
-        heartRateSummary: {
-          avgBpm: 158,
-          maxBpm: 183,
-          zoneMinutes: { zone1: 1, zone2: 6, zone3: 14, zone4: 18, zone5: 11 },
-        },
-      },
-      { date: "2026-04-09", format: "Yoga", durationMinutes: 45, source: "cult_class" },
-    ],
-  },
-  meera: {
-    label: "Meera Iyer",
-    description: "General-fitness beginner easing into a repeatable routine.",
-    profile: {
-      name: "Meera Iyer",
-      goal: "general_fitness",
-      frequency: "3",
-      startingPoint: "beginner",
-      splitPreference: "full_body",
-    },
-    planCreated: false,
-    defaultWorkoutStep: 1,
-    workouts: [
-      { date: "2026-04-04", format: "Yoga", durationMinutes: 45, source: "cult_class" },
-      { date: "2026-04-07", format: "Burn", durationMinutes: 42, source: "cult_class" },
-      {
-        date: "2026-04-09",
-        format: "Boxing",
-        durationMinutes: 43,
-        source: "apple_health",
-        effortRating: 6,
-      },
-    ],
-  },
-};
+const USER_LIBRARY = {};
 
 const GOAL_STEP_LIBRARY = [
   {
@@ -420,26 +304,36 @@ const GOAL_STEP_LIBRARY = [
   },
 ];
 
-const DEFAULT_USER_ID = Object.keys(USER_LIBRARY)[0];
+const DEFAULT_USER_ID = Object.keys(USER_LIBRARY)[0] || null;
+const DEFAULT_PROFILE = {
+  name: "New member",
+  goal: "general_fitness",
+  frequency: "3",
+  startingPoint: "beginner",
+  splitPreference: "full_body",
+};
 const initialUserProgressMap = getInitialUserProgressMap();
-const initialSelectedProgress = initialUserProgressMap[DEFAULT_USER_ID];
+const initialSelectedProgress = DEFAULT_USER_ID ? initialUserProgressMap[DEFAULT_USER_ID] : null;
 
 const state = {
   activeTab: "goal",
   currentDate: new Date(TODAY),
   selectedUserId: DEFAULT_USER_ID,
   userProgress: initialUserProgressMap,
-  currentWorkoutStep: initialSelectedProgress.workoutStep,
-  profile: { ...initialSelectedProgress.profile },
-  planCreated: initialSelectedProgress.planCreated,
-  goalStep: initialSelectedProgress.goalStep,
+  profile: initialSelectedProgress ? { ...initialSelectedProgress.profile } : cloneUserProfile(DEFAULT_PROFILE),
+  planCreated: initialSelectedProgress ? initialSelectedProgress.planCreated : false,
+  goalStep: initialSelectedProgress ? initialSelectedProgress.goalStep : 0,
   supportPanelOpen: false,
 };
 
 const tabButtons = [...document.querySelectorAll("[data-tab-target]")];
 const tabScreens = [...document.querySelectorAll("[data-tab]")];
+const newUserNameInput = document.getElementById("newUserNameInput");
+const addUserButton = document.getElementById("addUserButton");
 const userOptions = document.getElementById("userOptions");
-const workoutProgressOptions = document.getElementById("workoutProgressOptions");
+const workoutLogActions = document.getElementById("workoutLogActions");
+const workoutHistoryList = document.getElementById("workoutHistoryList");
+const workoutHistoryMeta = document.getElementById("workoutHistoryMeta");
 const currentDateLabel = document.getElementById("currentDateLabel");
 const welcomeTitle = document.getElementById("welcomeTitle");
 const memberName = document.getElementById("memberName");
@@ -472,6 +366,7 @@ const viewPulseFromPlan = document.getElementById("viewPulseFromPlan");
 const pulseHeadline = document.getElementById("pulseHeadline");
 const pulseEffortSummary = document.getElementById("pulseEffortSummary");
 const pulseMomentumPill = document.getElementById("pulseMomentumPill");
+const pulseSnapshotBadge = document.getElementById("pulseSnapshotBadge");
 const pulseLoadValue = document.getElementById("pulseLoadValue");
 const pulseLoadSubtext = document.getElementById("pulseLoadSubtext");
 const miniLoadTarget = document.getElementById("miniLoadTarget");
@@ -493,18 +388,46 @@ const hotspotNodes = [...document.querySelectorAll("[data-hotspot]")];
 let bodyReferenceOverlaysReady = false;
 const bodyAssetPreparation = prepareBodyReferenceOverlays();
 
-function cloneUserProfile(userId) {
-  const source = USER_LIBRARY[userId].profile;
-  return { ...source };
+function cloneWorkout(workout) {
+  return {
+    ...workout,
+    heartRateSummary: workout.heartRateSummary
+      ? {
+          ...workout.heartRateSummary,
+          zoneMinutes: workout.heartRateSummary.zoneMinutes
+            ? { ...workout.heartRateSummary.zoneMinutes }
+            : undefined,
+        }
+      : undefined,
+  };
 }
 
-function createUserProgress(userId) {
-  const user = USER_LIBRARY[userId];
+function cloneUserProfile(profile = DEFAULT_PROFILE) {
   return {
-    profile: cloneUserProfile(userId),
-    planCreated: user.planCreated,
+    name: profile.name || DEFAULT_PROFILE.name,
+    goal: GOAL_LIBRARY[profile.goal] ? profile.goal : DEFAULT_PROFILE.goal,
+    frequency: FREQUENCY_LIBRARY[profile.frequency] ? profile.frequency : DEFAULT_PROFILE.frequency,
+    startingPoint: LEVEL_LIBRARY[profile.startingPoint]
+      ? profile.startingPoint
+      : DEFAULT_PROFILE.startingPoint,
+    splitPreference: SPLIT_LIBRARY[profile.splitPreference]
+      ? profile.splitPreference
+      : DEFAULT_PROFILE.splitPreference,
+  };
+}
+
+function createUserProgress(userId, seedUser = USER_LIBRARY[userId], nameOverride = null) {
+  const profile = cloneUserProfile({
+    ...DEFAULT_PROFILE,
+    ...(seedUser?.profile || {}),
+    ...(nameOverride ? { name: nameOverride } : {}),
+  });
+
+  return {
+    profile,
+    planCreated: seedUser?.planCreated ?? false,
     goalStep: 0,
-    workoutStep: clamp(user.defaultWorkoutStep ?? user.workouts.length, 0, user.workouts.length),
+    workouts: (seedUser?.workouts || []).map(cloneWorkout),
   };
 }
 
@@ -517,27 +440,26 @@ function getDefaultUserProgressMap() {
 function normalizeUserProgress(userId, storedProgress) {
   const fallback = createUserProgress(userId);
   const storedProfile = storedProgress?.profile || {};
+  const fallbackWorkouts = fallback.workouts.map(cloneWorkout);
 
   return {
-    profile: {
-      name: typeof storedProfile.name === "string" && storedProfile.name.trim() ? storedProfile.name : fallback.profile.name,
-      goal: GOAL_LIBRARY[storedProfile.goal] ? storedProfile.goal : fallback.profile.goal,
-      frequency: FREQUENCY_LIBRARY[storedProfile.frequency] ? storedProfile.frequency : fallback.profile.frequency,
-      startingPoint: LEVEL_LIBRARY[storedProfile.startingPoint]
-        ? storedProfile.startingPoint
-        : fallback.profile.startingPoint,
-      splitPreference: SPLIT_LIBRARY[storedProfile.splitPreference]
-        ? storedProfile.splitPreference
-        : fallback.profile.splitPreference,
-    },
+    profile: cloneUserProfile({
+      ...fallback.profile,
+      name:
+        typeof storedProfile.name === "string" && storedProfile.name.trim()
+          ? storedProfile.name.trim()
+          : fallback.profile.name,
+      goal: storedProfile.goal,
+      frequency: storedProfile.frequency,
+      startingPoint: storedProfile.startingPoint,
+      splitPreference: storedProfile.splitPreference,
+    }),
     planCreated:
       typeof storedProgress?.planCreated === "boolean" ? storedProgress.planCreated : fallback.planCreated,
     goalStep: Number.isFinite(Number(storedProgress?.goalStep)) ? Number(storedProgress.goalStep) : fallback.goalStep,
-    workoutStep: clamp(
-      Number.isFinite(Number(storedProgress?.workoutStep)) ? Number(storedProgress.workoutStep) : fallback.workoutStep,
-      0,
-      USER_LIBRARY[userId].workouts.length,
-    ),
+    workouts: Array.isArray(storedProgress?.workouts)
+      ? storedProgress.workouts.map(cloneWorkout)
+      : fallbackWorkouts,
   };
 }
 
@@ -551,8 +473,21 @@ function getInitialUserProgressMap() {
     }
 
     const parsed = JSON.parse(stored);
+    const allUserIds = [...Object.keys(defaults), ...Object.keys(parsed || {}).filter((userId) => !defaults[userId])];
+
     return Object.fromEntries(
-      Object.keys(USER_LIBRARY).map((userId) => [userId, normalizeUserProgress(userId, parsed?.[userId])]),
+      allUserIds.map((userId) => {
+        const fallbackSeed = USER_LIBRARY[userId] || {
+          profile: {
+            ...DEFAULT_PROFILE,
+            name: parsed?.[userId]?.profile?.name || `Member`,
+          },
+          planCreated: false,
+          workouts: [],
+        };
+
+        return [userId, normalizeUserProgress(userId, { ...fallbackSeed, ...parsed?.[userId] })];
+      }),
     );
   } catch (error) {
     console.warn("Could not read saved user progress.", error);
@@ -568,70 +503,150 @@ function saveUserProgressMap() {
   }
 }
 
-function getSelectedUserConfig() {
-  return USER_LIBRARY[state.selectedUserId];
+function getUserRecord(userId = state.selectedUserId) {
+  return state.userProgress[userId];
 }
 
 function getSelectedUserProgress() {
-  return state.userProgress[state.selectedUserId];
-}
-
-function getReferenceDateForWorkoutStep(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
-  const workouts = USER_LIBRARY[userId].workouts;
-  if (!workouts.length) {
-    return new Date(TODAY);
-  }
-
-  if (workoutStep <= 0) {
-    return addDays(new Date(`${workouts[0].date}T18:30:00`), -1);
-  }
-
-  const workout = workouts[clamp(workoutStep, 1, workouts.length) - 1];
-  return new Date(`${workout.date}T18:30:00`);
+  return getUserRecord(state.selectedUserId);
 }
 
 function syncCurrentUserToState() {
   const progress = getSelectedUserProgress();
+  if (!progress) {
+    state.profile = cloneUserProfile(DEFAULT_PROFILE);
+    state.planCreated = false;
+    state.goalStep = 0;
+    state.currentDate = new Date(TODAY);
+    return;
+  }
+
   state.profile = { ...progress.profile };
   state.planCreated = progress.planCreated;
   state.goalStep = progress.goalStep;
-  state.currentWorkoutStep = clamp(progress.workoutStep, 0, getSelectedUserConfig().workouts.length);
   syncSplitPreference();
   clampGoalStep();
-  state.currentDate = getReferenceDateForWorkoutStep();
+  state.currentDate = getReferenceDateForUser();
 }
 
 function syncStateToCurrentUser() {
+  if (!state.selectedUserId || !getSelectedUserProgress()) {
+    return;
+  }
+
   state.userProgress[state.selectedUserId] = {
     ...getSelectedUserProgress(),
     profile: { ...state.profile },
     planCreated: state.planCreated,
     goalStep: state.goalStep,
-    workoutStep: state.currentWorkoutStep,
   };
   saveUserProgressMap();
 }
 
-function getProgressViewLabel(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
-  const totalWorkouts = USER_LIBRARY[userId].workouts.length;
-
-  if (workoutStep <= 0) {
-    return `Baseline before workouts`;
-  }
-
-  return `Workout ${workoutStep} of ${totalWorkouts}`;
+function getReferenceDateForUser(userId = state.selectedUserId) {
+  const latestWorkout = getCurrentWorkout(userId);
+  return latestWorkout ? getWorkoutDateObject(latestWorkout) : new Date(TODAY);
 }
 
-function getCurrentWorkout(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
-  if (workoutStep <= 0) {
-    return null;
-  }
-
-  return USER_LIBRARY[userId].workouts[workoutStep - 1] || null;
+function getProgressViewLabel(userId = state.selectedUserId) {
+  const workoutCount = getUserRecord(userId)?.workouts?.length || 0;
+  return workoutCount ? `${workoutCount} workouts logged` : "No workouts yet";
 }
 
-function getNextWorkout(userId = state.selectedUserId, workoutStep = state.currentWorkoutStep) {
-  return USER_LIBRARY[userId].workouts[workoutStep] || null;
+function getCurrentWorkout(userId = state.selectedUserId) {
+  const workouts = getUserRecord(userId)?.workouts || [];
+  return (
+    workouts
+      .slice()
+      .sort((left, right) => getWorkoutDateObject(right) - getWorkoutDateObject(left))[0] || null
+  );
+}
+
+function getProgressSnapshotCopy(userId = state.selectedUserId) {
+  const currentWorkout = getCurrentWorkout(userId);
+  const workoutCount = getUserRecord(userId)?.workouts?.length || 0;
+
+  if (!currentWorkout) {
+    return {
+      shortLabel: "No workouts yet",
+      timelineLabel: "No workouts logged yet",
+      detail: "Create a goal and log the first class from the left pane.",
+    };
+  }
+
+  const workoutDate = formatFullDate(getWorkoutDateObject(currentWorkout));
+  const workoutName = formatWorkoutName(currentWorkout.format);
+
+  return {
+    shortLabel: `${workoutCount} workouts logged`,
+    timelineLabel: `Latest workout: ${workoutName} on ${workoutDate}`,
+    detail: `${workoutName} on ${workoutDate}`,
+  };
+}
+
+function getNextMemberName() {
+  return `New member ${Object.keys(state.userProgress).length + 1}`;
+}
+
+function addUser() {
+  const typedName = newUserNameInput.value.trim();
+  const memberName = typedName || getNextMemberName();
+  const userId = `user_${Date.now()}`;
+
+  if (state.selectedUserId) {
+    syncStateToCurrentUser();
+  }
+  state.userProgress[userId] = createUserProgress(userId, null, memberName);
+  state.selectedUserId = userId;
+  state.activeTab = "goal";
+  state.supportPanelOpen = false;
+  newUserNameInput.value = "";
+  syncCurrentUserToState();
+  syncTabHash();
+  renderAll();
+}
+
+function getNewWorkoutDateTime(workouts) {
+  return new Date(TODAY.getTime() + (workouts.length * 60 * 60 * 1000)).toISOString();
+}
+
+function logWorkout(format) {
+  const record = getSelectedUserProgress();
+  if (!record) {
+    return;
+  }
+
+  const formatDetails = FORMAT_LIBRARY[format];
+
+  record.workouts = [
+    ...record.workouts,
+    {
+      dateTime: getNewWorkoutDateTime(record.workouts),
+      format,
+      durationMinutes: formatDetails.defaultDurationMinutes,
+      source: "cult_class",
+    },
+  ];
+
+  state.userProgress[state.selectedUserId] = record;
+  saveUserProgressMap();
+  syncCurrentUserToState();
+  state.activeTab = "pulse";
+  syncTabHash();
+  renderAll();
+}
+
+function removeWorkout(workoutIndex) {
+  const record = getSelectedUserProgress();
+  if (!record) {
+    return;
+  }
+
+  record.workouts = record.workouts.filter((_, index) => index !== workoutIndex);
+  state.userProgress[state.selectedUserId] = record;
+  saveUserProgressMap();
+  syncCurrentUserToState();
+  renderAll();
 }
 
 function shouldShowSplitStep(profile = state.profile) {
@@ -712,6 +727,12 @@ function startOfDay(date) {
   return copy;
 }
 
+function endOfDay(date) {
+  const copy = new Date(date);
+  copy.setHours(23, 59, 59, 999);
+  return copy;
+}
+
 function addDays(date, days) {
   return new Date(startOfDay(date).getTime() + days * DAY_MS);
 }
@@ -740,6 +761,29 @@ function formatFullDate(date) {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function formatShortDate(date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function formatWorkoutName(format) {
+  return format === "Strength & Conditioning" ? "S&C" : format;
+}
+
+function getWorkoutDateObject(workout, index = 0) {
+  if (workout.dateTime) {
+    return new Date(workout.dateTime);
+  }
+
+  if (workout.date) {
+    return new Date(`${workout.date}T${String(9 + (index % 8)).padStart(2, "0")}:00:00`);
+  }
+
+  return new Date(TODAY.getTime() + (index * 60 * 1000));
 }
 
 function loadImage(source) {
@@ -855,7 +899,7 @@ function getGoalConfig() {
 }
 
 function getScenarioConfig() {
-  return getSelectedUserConfig();
+  return getSelectedUserProgress();
 }
 
 function getRatingEffortFactor(rating) {
@@ -930,8 +974,8 @@ function getLoadConfidence(workout, measuredEffortFactor) {
 }
 
 function getWindowRange(referenceDate, windowDays, offsetDays = 0) {
-  const end = addDays(referenceDate, -offsetDays);
-  const start = addDays(end, -(windowDays - 1));
+  const end = endOfDay(addDays(referenceDate, -offsetDays));
+  const start = startOfDay(new Date(end.getTime() - ((windowDays - 1) * DAY_MS)));
   return { start, end };
 }
 
@@ -1056,7 +1100,8 @@ function getWorkoutEffortSummary(workout, weekly) {
 }
 
 function getScenarioWorkouts() {
-  return getScenarioConfig().workouts.slice(0, state.currentWorkoutStep).map((workout, index) => {
+  const scenario = getScenarioConfig();
+  return ((scenario && scenario.workouts) || []).map((workout, index) => {
     const details = FORMAT_LIBRARY[workout.format];
     const measuredEffortFactor = getMeasuredEffortFactor(workout, details);
     const durationMinutes = workout.durationMinutes || details.defaultDurationMinutes;
@@ -1076,7 +1121,7 @@ function getScenarioWorkouts() {
       modalityFactor: details.modalityFactor,
       loadConfidence: getLoadConfidence(workout, measuredEffortFactor),
       zoneWeights: { ...details.zoneWeights },
-      dateObject: new Date(`${workout.date}T09:00:00`),
+      dateObject: getWorkoutDateObject(workout, index),
     };
   });
 }
@@ -1520,38 +1565,46 @@ function renderButtonGroup(container, library, activeKey, onSelect) {
 }
 
 function renderPresenter() {
-  const user = getSelectedUserConfig();
+  const user = getSelectedUserProgress();
+  if (!user) {
+    currentDateLabel.textContent = formatFullDate(state.currentDate);
+    welcomeTitle.textContent = "Create your first member";
+    memberName.textContent = "No member selected";
+    summaryGoal.textContent = "No goal yet";
+    summaryScenario.textContent = "No workouts yet";
+    summaryRange.textContent = "--";
+    summaryLoad.textContent = "Waiting";
+    progressDescription.textContent = "Add a user from the left pane to start goal setup and workout tracking.";
+    saveStatus.textContent = "Once you add a member, goal edits and workouts will be saved locally until reset.";
+    return;
+  }
+
   const goal = getGoalConfig();
   const weekly = getWeeklyLoadSummary();
+  const snapshot = getProgressSnapshotCopy();
   const currentWorkout = getCurrentWorkout();
-  const nextWorkout = getNextWorkout();
 
   currentDateLabel.textContent = formatFullDate(state.currentDate);
   welcomeTitle.textContent = `Good evening, ${state.profile.name.split(" ")[0]}`;
   memberName.textContent = state.profile.name;
   summaryGoal.textContent = goal.label;
-  summaryScenario.textContent = getProgressViewLabel();
+  summaryScenario.textContent = snapshot.shortLabel;
   summaryRange.textContent = `${goal.targetRange[0]}-${goal.targetRange[1]} load`;
   summaryLoad.textContent = weekly.targetLabel;
   progressDescription.textContent = currentWorkout
-    ? `Viewing ${user.label} after ${currentWorkout.format}. ${
-        nextWorkout
-          ? `Next logged workout is ${nextWorkout.format}, so you can step forward and compare the pulse.`
-          : `This is the latest saved workout in the sequence.`
-      }`
-    : `Viewing ${user.label} before the first logged workout so you can compare baseline versus workout 1, 2, and 3.`;
-  saveStatus.textContent = `Saved locally for ${user.label}. Switching users restores their last selected workout step and goal setup.`;
+    ? `${user.profile.name} is showing ${snapshot.timelineLabel}. Log another workout on the left and this view will update immediately.`
+    : `${user.profile.name} has no workouts yet. Create the goal plan and log the first class from the left pane.`;
+  saveStatus.textContent = `Saved locally for ${user.profile.name}. Goal edits and logged workouts stay with this member until you reset.`;
 }
 
 function renderScenarioControls() {
   const userLibrary = Object.fromEntries(
-    Object.entries(USER_LIBRARY).map(([userId, user]) => {
-      const progress = state.userProgress[userId];
+    Object.entries(state.userProgress).map(([userId, progress]) => {
       return [
         userId,
         {
-          label: user.label,
-          description: `${GOAL_LIBRARY[progress.profile.goal].label} • ${getProgressViewLabel(userId, progress.workoutStep)}`,
+          label: progress.profile.name,
+          description: `${GOAL_LIBRARY[progress.profile.goal].label} • ${getProgressViewLabel(userId)}`,
         },
       ];
     }),
@@ -1564,28 +1617,47 @@ function renderScenarioControls() {
     renderAll();
   });
 
-  const workouts = getSelectedUserConfig().workouts;
-  const workoutLibrary = {
-    0: {
-      label: "Baseline",
-      description: workouts.length
-        ? `Before ${workouts[0].format} on ${formatFullDate(new Date(`${workouts[0].date}T18:30:00`))}`
-        : "Before any logged workouts",
-    },
-  };
+  const workoutActions = Object.fromEntries(
+    Object.entries(FORMAT_LIBRARY).map(([format, details]) => [
+      format,
+      {
+        label: format,
+        description: `${details.defaultDurationMinutes} min • Tap to log`,
+      },
+    ]),
+  );
 
-  workouts.forEach((workout, index) => {
-    workoutLibrary[index + 1] = {
-      label: `Workout ${index + 1}`,
-      description: `${workout.format} • ${formatFullDate(new Date(`${workout.date}T18:30:00`))}`,
-    };
+  renderButtonGroup(workoutLogActions, workoutActions, null, (format) => {
+    logWorkout(format);
   });
 
-  renderButtonGroup(workoutProgressOptions, workoutLibrary, String(state.currentWorkoutStep), (stepKey) => {
-    state.currentWorkoutStep = Number(stepKey);
-    state.currentDate = getReferenceDateForWorkoutStep(state.selectedUserId, state.currentWorkoutStep);
-    renderAll();
+  const workouts = getScenarioWorkouts().sort((left, right) => right.dateObject - left.dateObject);
+
+  workoutHistoryList.innerHTML = "";
+
+  workouts.forEach((workout) => {
+    const item = document.createElement("div");
+    item.className = "workout-history-item";
+
+    const copy = document.createElement("div");
+    copy.className = "workout-history-copy";
+    copy.innerHTML = `<strong>${formatWorkoutName(workout.format)}</strong><small>${formatShortDate(workout.dateObject)}</small>`;
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "workout-remove-button";
+    removeButton.textContent = "Remove";
+    removeButton.addEventListener("click", () => removeWorkout(Number(workout.id.replace("w", "")) - 1));
+
+    item.append(copy, removeButton);
+    workoutHistoryList.appendChild(item);
   });
+
+  workoutHistoryMeta.textContent = state.selectedUserId
+    ? workouts.length
+    ? `Last workout: ${formatWorkoutName(workouts[0].format)} | ${formatShortDate(workouts[0].dateObject)}`
+    : "No workouts logged yet. Use the buttons above to add the first class."
+    : "Add a member first, then log workouts here.";
 }
 
 function renderGoalStepper() {
@@ -1778,7 +1850,7 @@ function renderGoalPlan() {
   planSummary.classList.remove("hidden");
   setupPreviewTitle.textContent = program.title;
   setupPreviewBody.textContent = program.description;
-  previewTargetRange.textContent = "Target zone";
+  previewTargetRange.textContent = `${program.targetRange[0]}-${program.targetRange[1]} load`;
   previewSplit.textContent = program.split;
   previewWeeklyPattern.innerHTML = "";
   program.patternItems.forEach((item) => {
@@ -1790,6 +1862,20 @@ function renderGoalPlan() {
 }
 
 function renderGoal() {
+  if (!state.selectedUserId) {
+    goalStepTitle.textContent = "Create a member to begin";
+    goalStepDescription.textContent = "Add a user from the left pane, then use this flow to capture their goal and weekly routine.";
+    goalStepCount.textContent = "No member selected";
+    goalStepper.innerHTML = "";
+    goalStepContent.innerHTML = '<p class="step-hint">No member selected yet. Add a user from the left pane to start goal setup.</p>';
+    renderGoalPlan();
+    goalBackButton.disabled = true;
+    goalBackButton.style.visibility = "hidden";
+    goalNextButton.disabled = true;
+    goalNextButton.textContent = "Next";
+    return;
+  }
+
   clampGoalStep();
   const steps = getGoalSteps();
   const step = steps[state.goalStep];
@@ -1808,6 +1894,7 @@ function renderGoal() {
   } else {
     goalNextButton.textContent = "Next";
   }
+  goalNextButton.disabled = false;
 }
 
 function getPulseNarrative(summary, weekly, goal, plannedSessions) {
@@ -1904,16 +1991,24 @@ function getPulseNarrative(summary, weekly, goal, plannedSessions) {
   };
 }
 
-function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program) {
+function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program, snapshot) {
   const recommendedFormat = summary.recommendedFormat || "HRX";
   const remainingSessions = Math.max(0, plannedSessions - weekly.sessions);
   const recommendedSession =
     recommendedFormat === "Strength & Conditioning" ? "Strength session" : recommendedFormat;
+  const goalContext =
+    state.profile.goal === "weight_loss"
+      ? "Fat-loss rhythm"
+      : state.profile.goal === "strength"
+        ? "Strength rhythm"
+        : "Fitness rhythm";
+  const sessionsLeftLabel =
+    remainingSessions === 1 ? "1 session left" : `${remainingSessions} sessions left`;
 
   if (weekly.status === "in_range") {
     return {
-      title: `${goal.label} plan is on track`,
-      text: "You are in the right zone for this week, and the plan is holding steady.",
+      title: "On track",
+      text: `${goalContext} | In zone`,
       split: program.split,
       progress: `${weekly.sessions}/${plannedSessions} done`,
       actionLabel: `Keep ${recommendedSession} in rotation`,
@@ -1922,8 +2017,8 @@ function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program) {
 
   if (weekly.status === "above") {
     return {
-      title: `${goal.label} plan is above target`,
-      text: "You have already gone above target this week.",
+      title: "Above target",
+      text: `${goalContext} | Recovery focus`,
       split: program.split,
       progress: `${weekly.sessions}/${plannedSessions} done`,
       actionLabel: "Prioritize recovery",
@@ -1932,8 +2027,8 @@ function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program) {
 
   if (summary.coolingRisk === "dropoff_risk") {
     return {
-      title: `${goal.label} plan needs a restart`,
-      text: "This week has dropped off and the plan needs a restart.",
+      title: "Restart needed",
+      text: `${goalContext} | Log 1 class`,
       split: program.split,
       progress: `${weekly.sessions}/${plannedSessions} done`,
       actionLabel: `Plan ${recommendedSession}`,
@@ -1942,8 +2037,8 @@ function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program) {
 
   if (remainingSessions <= 1) {
     return {
-      title: `${goal.label} plan needs one more session`,
-      text: "You are close to target, with one session still left to complete the week.",
+      title: "1 session left",
+      text: `${goalContext} | ${recommendedSession} next`,
       split: program.split,
       progress: `${weekly.sessions}/${plannedSessions} done`,
       actionLabel: `Plan ${recommendedSession}`,
@@ -1951,32 +2046,32 @@ function getGoalAdherenceCopy(summary, weekly, goal, plannedSessions, program) {
   }
 
   return {
-    title: `${goal.label} plan is behind this week`,
-    text: "This week is still below target, and the plan is not fully back on track yet.",
+    title: sessionsLeftLabel,
+    text: `${goalContext} | ${recommendedSession} next`,
     split: program.split,
     progress: `${weekly.sessions}/${plannedSessions} done`,
     actionLabel: `Plan ${recommendedSession}`,
   };
 }
 
-function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort) {
+function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort, snapshot) {
   if (!latestWorkout) {
     return "No workout has landed in this week's view yet.";
   }
 
   if (weekly.status === "above") {
-    return `${workoutEffort.headline} from your latest ${latestWorkout.format} session pushed the week above target.`;
+    return `${snapshot.timelineLabel}. ${workoutEffort.headline} pushed the week above target.`;
   }
 
   if (weekly.status === "in_range") {
-    return `${workoutEffort.headline} from your latest ${latestWorkout.format} session moved the week into target.`;
+    return `${snapshot.timelineLabel}. ${workoutEffort.headline} moved the week into target.`;
   }
 
   if (workoutEffort.key === "light") {
-    return `${workoutEffort.headline} from your latest ${latestWorkout.format} session nudged the week forward, but this week is still building.`;
+    return `${snapshot.timelineLabel}. ${workoutEffort.headline} nudged the week forward, but this week is still building.`;
   }
 
-  return `${workoutEffort.headline} from your latest ${latestWorkout.format} session moved the week forward, but it is still below target.`;
+  return `${snapshot.timelineLabel}. ${workoutEffort.headline} moved the week forward, but it is still below target.`;
 }
 
 function renderSupportPanel() {
@@ -1985,16 +2080,25 @@ function renderSupportPanel() {
 }
 
 function renderAdherenceProgressDots(completed, planned) {
+  const safePlanned = Math.max(1, planned);
+  const safeCompleted = clamp(completed, 0, safePlanned);
+
   adherenceProgressDots.innerHTML = "";
 
-  Array.from({ length: planned }, (_, index) => {
-    const dot = document.createElement("span");
-    dot.className = "adherence-progress-dot";
-    if (index < completed) {
-      dot.classList.add("done");
-    }
-    adherenceProgressDots.appendChild(dot);
+  const fill = document.createElement("span");
+  fill.className = "adherence-progress-fill";
+  fill.style.width = `${(safeCompleted / safePlanned) * 100}%`;
+
+  const markers = document.createElement("span");
+  markers.className = "adherence-progress-markers";
+
+  Array.from({ length: safePlanned }, () => {
+    const marker = document.createElement("span");
+    marker.className = "adherence-progress-marker";
+    markers.appendChild(marker);
   });
+
+  adherenceProgressDots.append(fill, markers);
 }
 
 function renderPulseMap(pulseStates) {
@@ -2018,11 +2122,43 @@ function renderPulseMap(pulseStates) {
 }
 
 function renderPulse() {
+  if (!state.selectedUserId) {
+    pulseHeadline.textContent = "Add a member to see their Pulse";
+    pulseSnapshotBadge.textContent = "No workouts logged yet";
+    pulseEffortSummary.textContent = "The Pulse will appear once a member is created and workouts are logged.";
+    pulseMomentumPill.textContent = "Waiting";
+    pulseLoadValue.textContent = "Waiting";
+    pulseLoadSubtext.textContent = "No member selected";
+    miniLoadTarget.style.left = "0%";
+    miniLoadTarget.style.width = "0%";
+    miniLoadPrevious.style.width = "0%";
+    miniLoadBoost.style.left = "0%";
+    miniLoadBoost.style.width = "0%";
+    loadStatusBadge.textContent = "Waiting";
+    loadStatusBadge.classList.remove("in-range", "above");
+    weeklyLoadNarrative.textContent = "Add a member and log a workout to start the weekly load view.";
+    goalAdherenceTitle.textContent = "No adherence data";
+    goalAdherenceText.textContent = "Add member | Log workout";
+    adherenceSplitLabel.textContent = "--";
+    adherenceProgressLabel.textContent = "0/0 done";
+    renderAdherenceProgressDots(0, 1);
+    primaryAction.textContent = "Create first member";
+    trainingInsightTitle.textContent = "What this means";
+    pulseCuroText.textContent = "Nothing is being tracked yet. Add a member and log the first workout to begin.";
+    renderPulseMap(
+      Object.fromEntries(
+        Object.keys(ZONE_LIBRARY).map((zone) => [zone, { activation: 0 }]),
+      ),
+    );
+    return;
+  }
+
   const goal = getGoalConfig();
   const program = generateWeeklyProgram();
   const workouts = getScenarioWorkouts();
   const weekly = getWeeklyLoadSummary();
   const pulseSummary = getPulseSummary();
+  const snapshot = getProgressSnapshotCopy();
   const latestWorkout = getLatestCompletedWorkout(workouts);
   const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
   const narrative = getPulseNarrative(pulseSummary, weekly, goal, Number(state.profile.frequency));
@@ -2032,6 +2168,7 @@ function renderPulse() {
     goal,
     Number(state.profile.frequency),
     program,
+    snapshot,
   );
   const latestWorkoutInWindow =
     latestWorkout &&
@@ -2044,6 +2181,7 @@ function renderPulse() {
   );
 
   pulseHeadline.textContent = narrative.headline;
+  pulseSnapshotBadge.textContent = snapshot.timelineLabel;
   pulseEffortSummary.textContent = narrative.insightText;
   pulseMomentumPill.textContent = narrative.pill;
   pulseMomentumPill.classList.remove("is-cooling", "is-risk", "is-recovering", "is-light", "is-moderate", "is-high", "is-very-high");
@@ -2051,9 +2189,7 @@ function renderPulse() {
   pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
   pulseMomentumPill.classList.toggle("is-recovering", pulseSummary.momentumState === "fresh_gain" || pulseSummary.momentumState === "recovering");
   pulseLoadValue.textContent = weekly.targetLabel;
-  pulseLoadSubtext.textContent = latestWorkout
-    ? `Latest workout: ${latestWorkout.format} • ${latestWorkout.durationMinutes} min • ${workoutEffort.headline}`
-    : `${weekly.sessions} sessions in the last ${ROLLING_LOAD_DAYS} days`;
+  pulseLoadSubtext.textContent = `${workouts.length} workouts logged.`;
 
   miniLoadTarget.style.left = toPercent(goal.targetRange[0], LOAD_MAX);
   miniLoadTarget.style.width = toPercent(goal.targetRange[1] - goal.targetRange[0], LOAD_MAX);
@@ -2071,6 +2207,7 @@ function renderPulse() {
     weekly,
     latestWorkoutInWindow,
     workoutEffort,
+    snapshot,
   );
 
   goalAdherenceTitle.textContent = adherence.title;
@@ -2100,6 +2237,7 @@ function resetDemo() {
   state.selectedUserId = DEFAULT_USER_ID;
   state.userProgress = getDefaultUserProgressMap();
   state.supportPanelOpen = false;
+  newUserNameInput.value = "";
   syncCurrentUserToState();
   syncTabHash();
   renderAll();
@@ -2149,6 +2287,14 @@ primaryAction.addEventListener("click", () => {
   state.activeTab = "goal";
   syncTabHash();
   renderAll();
+});
+
+addUserButton.addEventListener("click", addUser);
+
+newUserNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    addUser();
+  }
 });
 
 resetButton.addEventListener("click", resetDemo);

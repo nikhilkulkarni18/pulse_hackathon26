@@ -235,6 +235,69 @@ h3 {
   margin-top: 0.75rem;
 }
 
+.inline-control-row {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.control-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(16, 36, 58, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+  font: inherit;
+}
+
+.control-input::placeholder {
+  color: #8092a5;
+}
+
+.compact-button {
+  flex: 0 0 auto;
+  min-width: 76px;
+}
+
+.workout-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(16, 36, 58, 0.08);
+  background: rgba(16, 36, 58, 0.05);
+}
+
+.workout-history-copy {
+  min-width: 0;
+}
+
+.workout-history-copy strong,
+.workout-history-copy small {
+  display: block;
+}
+
+.workout-history-copy small {
+  margin-top: 0.2rem;
+  color: #667b92;
+  font-size: 0.8rem;
+}
+
+.workout-remove-button {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 36, 58, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: #4c6076;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .control-option,
 .choice-button,
 .segmented-button,
@@ -656,6 +719,21 @@ h3 {
   font-size: 0.86rem;
 }
 
+.pulse-snapshot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.45rem 0 0.55rem;
+  padding: 0.35rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(116, 232, 255, 0.08);
+  border: 1px solid rgba(116, 232, 255, 0.18);
+  color: #c8f8ff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .pulse-state-pill.is-cooling {
   background: rgba(255, 189, 102, 0.12);
   border-color: rgba(255, 189, 102, 0.2);
@@ -870,21 +948,35 @@ h3 {
 }
 
 .adherence-progress-dots {
-  display: flex;
-  gap: 0.32rem;
-}
-
-.adherence-progress-dot {
-  flex: 1;
-  height: 0.35rem;
+  position: relative;
+  height: 0.55rem;
   border-radius: 999px;
-  background: rgba(16, 36, 58, 0.07);
-  border: 1px solid rgba(16, 36, 58, 0.04);
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
 }
 
-.adherence-progress-dot.done {
-  background: rgba(56, 216, 201, 0.34);
-  border-color: rgba(56, 216, 201, 0.12);
+.adherence-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--teal), var(--cyan));
+  box-shadow: 0 0 18px rgba(116, 232, 255, 0.22);
+}
+
+.adherence-progress-markers {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.adherence-progress-marker {
+  flex: 1;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.adherence-progress-marker:last-child {
+  border-right: 0;
 }
 
 .curo-avatar {
@@ -956,6 +1048,10 @@ h3 {
   .goal-stepper,
   .segmented-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inline-control-row {
+    flex-direction: column;
   }
 
   .support-panel {
