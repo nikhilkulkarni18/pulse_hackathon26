@@ -1203,6 +1203,18 @@ function endOfDay(date) {
   return copy;
 }
 
+function startOfWeek(date) {
+  const copy = startOfDay(date);
+  const day = copy.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  copy.setDate(copy.getDate() + mondayOffset);
+  return copy;
+}
+
+function endOfWeek(date) {
+  return endOfDay(addDays(startOfWeek(date), 6));
+}
+
 function addDays(date, days) {
   return new Date(startOfDay(date).getTime() + days * DAY_MS);
 }
@@ -1244,6 +1256,10 @@ function formatShortDate(date) {
     day: "numeric",
     month: "short",
   }).format(date);
+}
+
+function formatWeekRangeLabel(start, end) {
+  return `${formatShortDate(start)}-${formatShortDate(end)}`;
 }
 
 function formatWorkoutName(format) {
@@ -1585,6 +1601,36 @@ function getWeeklyLoadSummary() {
     targetRange: goal.targetRange,
     status,
     targetLabel: TARGET_STATUS_LABELS[status],
+  };
+}
+
+function getCalendarWeekSummary(referenceDate = state.currentDate, weekOffset = 0) {
+  const workouts = getScenarioWorkouts();
+  const goal = getGoalConfig();
+  const weekAnchor = addDays(referenceDate, weekOffset * 7);
+  const weekStart = startOfWeek(weekAnchor);
+  const weekEnd = endOfWeek(weekAnchor);
+  const weekWorkouts = workouts.filter(
+    (workout) => workout.dateObject >= weekStart && workout.dateObject <= weekEnd,
+  );
+  const total = roundLoad(weekWorkouts.reduce((sum, workout) => sum + workout.sessionLoad, 0));
+  const sessions = weekWorkouts.length;
+
+  let status = "below";
+  if (total > goal.targetRange[1]) {
+    status = "above";
+  } else if (total >= goal.targetRange[0]) {
+    status = "in_range";
+  }
+
+  return {
+    start: weekStart,
+    end: weekEnd,
+    label: formatWeekRangeLabel(weekStart, weekEnd),
+    workouts: weekWorkouts,
+    total,
+    sessions,
+    status,
   };
 }
 
@@ -1999,6 +2045,33 @@ function getWeeklyLoadSubtext(weekly, pulseSummary) {
       : ` • Last workout ${formatRelativeDayLabel(pulseSummary.daysSinceLastWorkout)}`;
 
   return `${formatSessionCount(weekly.sessions)} in the last ${ROLLING_LOAD_DAYS} days • ${formatLoadValue(weekly.total)} load${recencyLabel}`;
+}
+
+function getWeekTransitionNarrative(currentWeek, previousWeek, recommendedFormat) {
+  if (currentWeek.sessions > 0 || previousWeek.sessions === 0) {
+    return null;
+  }
+
+  const sessionLabel = formatSessionCount(previousWeek.sessions);
+  const carryForward =
+    previousWeek.status === "above"
+      ? "You pushed above target last week."
+      : previousWeek.status === "in_range"
+        ? "You landed right in target last week."
+        : `You logged ${sessionLabel} last week and started building momentum.`;
+
+  return {
+    headline:
+      previousWeek.status === "above" || previousWeek.status === "in_range"
+        ? "You did well last week. Keep it going."
+        : "You started last week well. Keep the rhythm going.",
+    pill: "New week",
+    adherenceTitle: "Carry last week forward",
+    adherenceText: `${carryForward} Start this week with ${recommendedFormat} so the map does not cool off between weeks.`,
+    actionLabel: `Start with ${recommendedFormat}`,
+    insightTitle: "Last week and next step",
+    insightText: `${previousWeek.label}: ${formatLoadValue(previousWeek.total)} load across ${sessionLabel}. Start this week with ${recommendedFormat} to keep the streak alive.`,
+  };
 }
 
 function toPercent(value, max) {
@@ -2888,15 +2961,23 @@ function renderPulse() {
   const workouts = getScenarioWorkouts();
   const weekly = getWeeklyLoadSummary();
   const pulseSummary = getPulseSummary();
+  const currentCalendarWeek = getCalendarWeekSummary(state.currentDate, 0);
+  const previousCalendarWeek = getCalendarWeekSummary(state.currentDate, -1);
   const latestWorkout = getLatestCompletedWorkout(workouts);
   const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
-  const narrative = getPulseNarrative(
+  const defaultNarrative = getPulseNarrative(
     pulseSummary,
     weekly,
     goal,
     Number(state.profile.frequency),
     workouts.length,
   );
+  const weekTransitionNarrative = getWeekTransitionNarrative(
+    currentCalendarWeek,
+    previousCalendarWeek,
+    pulseSummary.recommendedFormat || DEFAULT_HRX_FORMAT,
+  );
+  const narrative = weekTransitionNarrative || defaultNarrative;
   const adherence = getGoalAdherenceCopy(
     pulseSummary,
     weekly,
