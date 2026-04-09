@@ -84,10 +84,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background:
-    linear-gradient(180deg, rgba(8, 20, 37, 0.96), rgba(9, 24, 42, 0.92)),
-    radial-gradient(circle at top left, rgba(56, 216, 201, 0.1), transparent 38%);
-  color: var(--text);
+  background: linear-gradient(180deg, var(--white-panel), rgba(242, 247, 251, 0.96));
+  color: var(--ink);
 }
 
 .product-shell {
@@ -152,7 +150,7 @@ body {
   font-size: 0.82rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #667b92;
 }
 
 h1,
@@ -218,8 +216,8 @@ h3 {
 .summary-card,
 .timeline-card {
   padding: 1rem;
-  border: 1px solid rgba(173, 223, 255, 0.1);
-  background: rgba(14, 30, 50, 0.54);
+  border: 1px solid rgba(16, 36, 58, 0.08);
+  background: rgba(16, 36, 58, 0.03);
 }
 
 .timeline-card {
@@ -252,14 +250,14 @@ h3 {
   min-width: 0;
   padding: 0.9rem 1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(173, 223, 255, 0.12);
-  background: rgba(6, 17, 31, 0.76);
-  color: var(--text);
+  border: 1px solid rgba(16, 36, 58, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
   font: inherit;
 }
 
 .control-input::placeholder {
-  color: var(--muted);
+  color: #8092a5;
 }
 
 .compact-button {
@@ -275,17 +273,17 @@ h3 {
   margin-top: 0.75rem;
   padding: 0.85rem 0.95rem;
   border-radius: 1rem;
-  border: 1px solid rgba(173, 223, 255, 0.12);
-  background: rgba(6, 17, 31, 0.68);
+  border: 1px solid rgba(16, 36, 58, 0.08);
+  background: rgba(255, 255, 255, 0.68);
 }
 
 .time-status span {
-  color: var(--muted);
+  color: #667b92;
   font-size: 0.82rem;
 }
 
 .time-status strong {
-  color: var(--text);
+  color: var(--ink);
   font-size: 0.9rem;
 }
 
@@ -419,7 +417,7 @@ h3 {
 
 .summary-row {
   padding: 0.62rem 0;
-  border-bottom: 1px solid rgba(173, 223, 255, 0.1);
+  border-bottom: 1px solid rgba(16, 36, 58, 0.08);
 }
 
 .summary-row:last-child {
@@ -427,17 +425,17 @@ h3 {
 }
 
 .summary-row span {
-  color: var(--muted);
+  color: #556a80;
 }
 
 .timeline-card h2 {
   font-size: 1.1rem;
-  color: var(--text);
+  color: var(--ink);
 }
 
 .save-status {
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(173, 223, 255, 0.1);
+  border-top: 1px solid rgba(16, 36, 58, 0.08);
 }
 
 .full-width {
@@ -450,25 +448,6 @@ h3 {
   background: transparent;
   border: 1px solid rgba(16, 36, 58, 0.12);
   color: inherit;
-}
-
-.presenter-panel .support-copy,
-.presenter-panel .save-status,
-.presenter-panel .control-option small {
-  color: var(--muted);
-}
-
-.presenter-panel .control-option,
-.presenter-panel .ghost-button {
-  border-color: rgba(173, 223, 255, 0.12);
-  background: rgba(15, 33, 55, 0.58);
-  color: var(--text);
-}
-
-.presenter-panel .control-option.active {
-  background: rgba(116, 232, 255, 0.14);
-  border-color: rgba(116, 232, 255, 0.28);
-  box-shadow: 0 10px 24px rgba(56, 216, 201, 0.08);
 }
 
 .primary-button {
@@ -1042,37 +1021,10 @@ h3 {
   filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.18));
 }
 
-.pulse-status-line {
-  flex: 0 0 2px;
-  width: 2px;
-  align-self: stretch;
-  min-height: 4.2rem;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(247, 200, 86, 0.94), rgba(255, 189, 102, 0.52));
-  box-shadow: 0 0 12px rgba(255, 189, 102, 0.22);
-  opacity: 0.96;
-}
-
-.pulse-card-top.is-progress .pulse-status-line {
-  background: linear-gradient(180deg, rgba(247, 200, 86, 0.94), rgba(255, 189, 102, 0.52));
-  box-shadow: 0 0 12px rgba(255, 189, 102, 0.22);
-}
-
-.pulse-card-top.is-positive .pulse-status-line {
-  background: linear-gradient(180deg, rgba(184, 255, 108, 0.98), rgba(110, 227, 132, 0.56));
-  box-shadow: 0 0 14px rgba(184, 255, 108, 0.24);
-}
-
-.pulse-card-top.is-risk .pulse-status-line {
-  background: linear-gradient(180deg, rgba(255, 138, 122, 0.98), rgba(255, 125, 107, 0.52));
-  box-shadow: 0 0 14px rgba(255, 125, 107, 0.22);
-}
-
 .pulse-insight-copy {
   display: grid;
   flex: 1 1 auto;
   min-width: 0;
-  gap: 0.38rem;
 }
 
 .pulse-insight-copy h2 {
@@ -1080,14 +1032,6 @@ h3 {
   line-height: 1.08;
   white-space: nowrap;
   max-width: none;
-}
-
-.pulse-header-subtext {
-  margin: 0;
-  color: rgba(214, 230, 244, 0.84);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  max-width: 44rem;
 }
 
 .pulse-insight-rail {
@@ -1176,7 +1120,7 @@ h3 {
 
 .pulse-visual-header {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.35rem;
 }
 
 .pulse-visual-header h3,
@@ -1253,36 +1197,6 @@ h3 {
     saturate(1.18)
     brightness(calc(0.92 + (var(--zone-score, 0) * 0.24)))
     drop-shadow(0 0 calc(4px + (var(--zone-score, 0) * 10px)) rgba(120, 255, 205, 0.22));
-}
-
-.body-response-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  align-items: stretch;
-}
-
-.body-response-item {
-  display: grid;
-  gap: 0.22rem;
-  padding: 0.82rem 0.9rem;
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(173, 223, 255, 0.08);
-}
-
-.body-response-item span {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.body-response-item strong {
-  font-size: 0.94rem;
-  color: #eef8ff;
-}
-
-.body-response-item strong.is-empty {
-  color: rgba(238, 248, 255, 0.48);
 }
 
 .pulse-side-column {
@@ -1490,10 +1404,6 @@ h3 {
     flex-basis: 64px;
   }
 
-  .pulse-status-line {
-    min-height: 3.3rem;
-  }
-
   .pulse-insight-copy h2 {
     white-space: normal;
   }
@@ -1531,9 +1441,5 @@ h3 {
 
   .body-figure {
     height: min(314px, 84%);
-  }
-
-  .body-response-meta {
-    grid-template-columns: 1fr;
   }
 }

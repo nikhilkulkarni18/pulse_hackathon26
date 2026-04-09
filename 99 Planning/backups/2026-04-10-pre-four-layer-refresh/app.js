@@ -1,10 +1,4 @@
-function getTodayReferenceDate() {
-  const now = new Date();
-  now.setHours(18, 30, 0, 0);
-  return now;
-}
-
-const TODAY = getTodayReferenceDate();
+const TODAY = new Date("2026-04-09T18:30:00");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LOAD_MAX = 36;
 const ROLLING_LOAD_DAYS = 7;
@@ -17,13 +11,13 @@ const BODY_ASSET_DISPLAY_GAMMA = 1.1;
 const DEFAULT_HRX_FORMAT = "HRX Core";
 const HIDDEN_RECOMMENDATION_FORMATS = new Set(["HRX"]);
 const PLAN_ITEM_FORMAT_OPTIONS = {
-  "Gym: Full body": ["Gym Full body"],
+  "Gym: Full body": ["Gym Upper", "Gym Lower"],
   "Gym: Upper": ["Gym Upper"],
   "Gym: Lower": ["Gym Lower"],
   "Gym: Legs": ["Gym Legs", "Gym Lower"],
-  "Gym: Chest+Tri": ["Gym Chest+Tri"],
-  "Gym: Back+Bicep": ["Gym Back+Bicep"],
-  "Gym: Shoulders+Core": ["Gym Shoulders+Core"],
+  "Gym: Chest+Tri": ["Gym Chest", "Gym Arms"],
+  "Gym: Back+Bicep": ["Gym Back", "Gym Arms"],
+  "Gym: Shoulders+Core": ["Gym Shoulders", "Gym Core"],
 };
 
 const BODY_ASSET_LIBRARY = {
@@ -34,17 +28,6 @@ const BODY_ASSET_LIBRARY = {
   back: { back: 1, core: 0.16 },
   legs: { quads: 1, glutes: 0.96, hamstrings: 0.92, calves: 0.82 },
 };
-const ANATOMICAL_ZONES = new Set([
-  "shoulders",
-  "arms",
-  "chest",
-  "core",
-  "back",
-  "glutes",
-  "quads",
-  "hamstrings",
-  "calves",
-]);
 
 const GOAL_LIBRARY = {
   weight_loss: {
@@ -362,33 +345,12 @@ const FORMAT_LIBRARY = {
     modalityFactor: 1.08,
     defaultEffortFactor: 0.11,
     zoneWeights: {
-      shoulders: 0.58,
-      arms: 0.46,
-      chest: 0.42,
-      back: 0.48,
-      core: 0.72,
-      quads: 0.62,
-      glutes: 0.56,
-      hamstrings: 0.38,
-      calves: 0.26,
+      quads: 0.9,
+      glutes: 0.8,
+      core: 0.75,
       cardio: 0.85,
-    },
-  },
-  "Gym Full body": {
-    intensity: 6,
-    defaultDurationMinutes: 50,
-    modalityFactor: 1.08,
-    defaultEffortFactor: 0.1,
-    zoneWeights: {
-      shoulders: 0.46,
-      arms: 0.38,
-      chest: 0.44,
-      back: 0.46,
-      core: 0.34,
-      glutes: 0.44,
-      quads: 0.52,
-      hamstrings: 0.38,
-      calves: 0.2,
+      calves: 0.4,
+      hamstrings: 0.35,
     },
   },
   "Gym Upper": {
@@ -485,42 +447,6 @@ const FORMAT_LIBRARY = {
       back: 0.22,
     },
   },
-  "Gym Chest+Tri": {
-    intensity: 5,
-    defaultDurationMinutes: 45,
-    modalityFactor: 1.02,
-    defaultEffortFactor: 0.09,
-    zoneWeights: {
-      chest: 1,
-      arms: 0.48,
-      shoulders: 0.28,
-      core: 0.1,
-    },
-  },
-  "Gym Back+Bicep": {
-    intensity: 5,
-    defaultDurationMinutes: 45,
-    modalityFactor: 1.02,
-    defaultEffortFactor: 0.09,
-    zoneWeights: {
-      back: 1,
-      arms: 0.44,
-      shoulders: 0.22,
-      core: 0.12,
-    },
-  },
-  "Gym Shoulders+Core": {
-    intensity: 5,
-    defaultDurationMinutes: 40,
-    modalityFactor: 1,
-    defaultEffortFactor: 0.09,
-    zoneWeights: {
-      shoulders: 0.92,
-      core: 0.74,
-      arms: 0.18,
-      back: 0.14,
-    },
-  },
 };
 
 const LOG_WORKOUT_SOURCE_LIBRARY = {
@@ -543,9 +469,7 @@ const LOG_WORKOUT_TYPE_LIBRARY = {
     yoga: { label: "Yoga", description: "Recovery + mobility" },
   },
   gym: {
-    full_body: { label: "Full body", description: "Balanced strength session" },
     upper_lower: { label: "Upper / lower", description: "Broad strength split" },
-    split_day: { label: "Split day", description: "Two target areas" },
     focused: { label: "Focused muscle", description: "One target area" },
   },
 };
@@ -562,17 +486,9 @@ const LOG_WORKOUT_MUSCLE_LIBRARY = {
     },
   },
   gym: {
-    full_body: {
-      full_body: { label: "Full body", format: "Gym Full body" },
-    },
     upper_lower: {
       upper: { label: "Upper body", format: "Gym Upper" },
       lower: { label: "Lower body", format: "Gym Lower" },
-    },
-    split_day: {
-      chest_tri: { label: "Chest + triceps", format: "Gym Chest+Tri" },
-      back_bicep: { label: "Back + biceps", format: "Gym Back+Bicep" },
-      shoulders_core: { label: "Shoulders + core", format: "Gym Shoulders+Core" },
     },
     focused: {
       chest: { label: "Chest", format: "Gym Chest" },
@@ -675,12 +591,12 @@ const GOAL_ZONE_PRIORITY = {
 const AREA_GROUPS = {
   cardio: { label: "Cardio", inline: "cardio", zones: ["cardio"] },
   lower_body: {
-    label: "Lower-body response",
+    label: "Lower-body signal",
     inline: "lower body",
     zones: ["quads", "glutes", "hamstrings", "calves"],
   },
   upper_body: {
-    label: "Upper-body response",
+    label: "Upper-body signal",
     inline: "upper body",
     zones: ["shoulders", "arms", "chest", "back"],
   },
@@ -779,11 +695,8 @@ const viewPulseFromPlan = document.getElementById("viewPulseFromPlan");
 const pulseCardTop = document.getElementById("pulseCardTop");
 const pulseWeekDots = document.getElementById("pulseWeekDots");
 const pulseHeadline = document.getElementById("pulseHeadline");
-const pulseHeaderSubtext = document.getElementById("pulseHeaderSubtext");
 const pulseMomentumPill = document.getElementById("pulseMomentumPill");
 const pulseCuroVisual = document.getElementById("pulseCuroVisual");
-const bodyMapMostActive = document.getElementById("bodyMapMostActive");
-const bodyMapCoverage = document.getElementById("bodyMapCoverage");
 const pulseLoadValue = document.getElementById("pulseLoadValue");
 const pulseLoadSubtext = document.getElementById("pulseLoadSubtext");
 const miniLoadTarget = document.getElementById("miniLoadTarget");
@@ -1120,12 +1033,8 @@ function getSuggestedLogWorkoutSelection(format) {
 
   if (format.startsWith("Gym ")) {
     const gymMap = {
-      "Gym Full body": { source: "gym", type: "full_body", muscle: "full_body" },
       "Gym Upper": { source: "gym", type: "upper_lower", muscle: "upper" },
       "Gym Lower": { source: "gym", type: "upper_lower", muscle: "lower" },
-      "Gym Chest+Tri": { source: "gym", type: "split_day", muscle: "chest_tri" },
-      "Gym Back+Bicep": { source: "gym", type: "split_day", muscle: "back_bicep" },
-      "Gym Shoulders+Core": { source: "gym", type: "split_day", muscle: "shoulders_core" },
       "Gym Chest": { source: "gym", type: "focused", muscle: "chest" },
       "Gym Back": { source: "gym", type: "focused", muscle: "back" },
       "Gym Arms": { source: "gym", type: "focused", muscle: "arms" },
@@ -1179,52 +1088,17 @@ function resetLogWorkoutFlow() {
   syncLogWorkoutSelection();
 }
 
-function syncLogWorkoutSelectionForFormat(recommendedFormat = null) {
-  if (!recommendedFormat || !FORMAT_LIBRARY[recommendedFormat]) {
-    resetLogWorkoutFlow();
-    return;
-  }
-
-  const selection = getSuggestedLogWorkoutSelection(recommendedFormat);
-  state.logWorkoutSource = selection.source;
-  state.logWorkoutType = selection.type;
-  state.logWorkoutMuscle = selection.muscle;
-  syncLogWorkoutSelection();
-}
-
-function getPulseActionContext() {
-  const summary = getPulseSummary();
-  const goal = getGoalConfig();
-  const program = generateWeeklyProgram();
-  const currentCalendarWeek = getCalendarWeekSummary(state.currentDate, 0);
-  const nextPlannedWorkout = getNextPlannedWorkout(state.profile, state.currentDate);
-  const plannedSessions = Number(state.profile.frequency);
-  const adherence = getGoalAdherenceCopy(
-    summary,
-    currentCalendarWeek,
-    goal,
-    Number(state.profile.frequency),
-    program,
-  );
-  const isRecoveryAction =
-    adherence.actionLabel === "Recover" && currentCalendarWeek.sessions >= plannedSessions;
-
-  return {
-    summary,
-    adherence,
-    nextPlannedWorkout,
-    isRecoveryAction,
-    recommendedFormat: nextPlannedWorkout.format || summary.recommendedFormat || DEFAULT_HRX_FORMAT,
-  };
-}
-
 function openLogWorkout(recommendedFormat = null) {
   if (recommendedFormat && FORMAT_LIBRARY[recommendedFormat]) {
-    syncLogWorkoutSelectionForFormat(recommendedFormat);
+    const selection = getSuggestedLogWorkoutSelection(recommendedFormat);
+    state.logWorkoutSource = selection.source;
+    state.logWorkoutType = selection.type;
+    state.logWorkoutMuscle = selection.muscle;
   } else {
     resetLogWorkoutFlow();
   }
 
+  syncLogWorkoutSelection();
   state.activeTab = "log";
   syncTabHash();
   renderAll();
@@ -1951,64 +1825,7 @@ function getCalendarWeekSummary(referenceDate = state.currentDate, weekOffset = 
   };
 }
 
-function getJourneyWeekSummary(
-  referenceDate = state.currentDate,
-  weekOffset = 0,
-  userId = state.selectedUserId,
-) {
-  const workouts = getScenarioWorkouts();
-  const goal = getGoalConfig();
-  const journeyStart = startOfDay(getStartDateForUser(userId));
-  const currentDay = startOfDay(referenceDate);
-  const currentWeekNumber = Math.max(1, Math.floor(diffDays(currentDay, journeyStart) / 7) + 1);
-  const targetWeekNumber = currentWeekNumber + weekOffset;
-
-  if (targetWeekNumber < 1) {
-    const endBeforeJourney = endOfDay(addDays(journeyStart, -1));
-    return {
-      weekNumber: 0,
-      start: startOfDay(addDays(journeyStart, -7)),
-      end: endBeforeJourney,
-      label: "Before start",
-      workouts: [],
-      total: 0,
-      sessions: 0,
-      status: "below",
-      isFuture: false,
-      isCurrent: false,
-    };
-  }
-
-  const weekStart = startOfDay(addDays(journeyStart, (targetWeekNumber - 1) * 7));
-  const weekEnd = endOfDay(addDays(weekStart, 6));
-  const weekWorkouts = workouts.filter(
-    (workout) => workout.dateObject >= weekStart && workout.dateObject <= weekEnd,
-  );
-  const total = roundLoad(weekWorkouts.reduce((sum, workout) => sum + workout.sessionLoad, 0));
-  const sessions = weekWorkouts.length;
-
-  let status = "below";
-  if (total > goal.targetRange[1]) {
-    status = "above";
-  } else if (total >= goal.targetRange[0]) {
-    status = "in_range";
-  }
-
-  return {
-    weekNumber: targetWeekNumber,
-    start: weekStart,
-    end: weekEnd,
-    label: `W${targetWeekNumber}`,
-    workouts: weekWorkouts,
-    total,
-    sessions,
-    status,
-    isFuture: weekStart > referenceDate,
-    isCurrent: referenceDate >= weekStart && referenceDate <= weekEnd,
-  };
-}
-
-function getWeekTone(weekSummary, goalTargetRange, plannedSessions, isCurrentWeek, totalWorkouts) {
+function getWeekTone(weekSummary, goalTargetRange, isCurrentWeek, totalWorkouts) {
   if (weekSummary.isFuture) {
     return "pending";
   }
@@ -2017,33 +1834,31 @@ function getWeekTone(weekSummary, goalTargetRange, plannedSessions, isCurrentWee
     return "pending";
   }
 
-  const sessionRatio = plannedSessions > 0 ? weekSummary.sessions / plannedSessions : 0;
-
-  if (weekSummary.sessions >= plannedSessions || weekSummary.status === "in_range") {
+  if (weekSummary.status === "in_range") {
     return "good";
   }
 
   if (weekSummary.status === "above") {
-    return "good";
+    return "okay";
   }
 
-  const loadRatio = goalTargetRange[0] > 0 ? weekSummary.total / goalTargetRange[0] : 0;
-  return sessionRatio >= 0.5 || loadRatio >= 0.5 ? "okay" : "risk";
+  const progressRatio = goalTargetRange[0] > 0 ? weekSummary.total / goalTargetRange[0] : 0;
+  return progressRatio >= 0.5 ? "okay" : "risk";
 }
 
 function getSixWeekJourney(referenceDate = state.currentDate, userId = state.selectedUserId) {
   const workouts = getUserRecord(userId)?.workouts || [];
   const goal = getGoalConfig();
-  const plannedSessions = Number(getUserRecord(userId)?.profile?.frequency || state.profile.frequency || 0);
-  const journeyStart = startOfDay(getStartDateForUser(userId));
-  const currentDay = startOfDay(referenceDate);
-  const currentWeekNumber = Math.max(1, Math.floor(diffDays(currentDay, journeyStart) / 7) + 1);
+  const startDate = getStartDateForUser(userId);
+  const anchorWeekStart = startOfWeek(startDate);
+  const currentWeekStart = startOfWeek(referenceDate);
+  const currentWeekNumber = Math.max(1, Math.floor(diffDays(currentWeekStart, anchorWeekStart) / 7) + 1);
   const firstVisibleWeek = currentWeekNumber <= 6 ? 1 : currentWeekNumber - 5;
 
   return Array.from({ length: 6 }, (_, index) => {
     const weekNumber = firstVisibleWeek + index;
-    const weekStart = startOfDay(addDays(journeyStart, (weekNumber - 1) * 7));
-    const weekEnd = endOfDay(addDays(weekStart, 6));
+    const weekStart = addDays(anchorWeekStart, (weekNumber - 1) * 7);
+    const weekEnd = endOfWeek(weekStart);
     const isFuture = weekStart > referenceDate;
     const weekWorkouts = workouts
       .map((workout) => ({ ...workout, dateObject: getWorkoutDateObject(workout) }))
@@ -2063,15 +1878,14 @@ function getSixWeekJourney(referenceDate = state.currentDate, userId = state.sel
       start: weekStart,
       end: weekEnd,
       total,
-      sessions: weekWorkouts.length,
       status,
       isFuture,
-      isCurrent: referenceDate >= weekStart && referenceDate <= weekEnd,
+      isCurrent: weekStart.getTime() === currentWeekStart.getTime(),
     };
 
     return {
       ...summary,
-      tone: getWeekTone(summary, goal.targetRange, plannedSessions, summary.isCurrent, workouts.length),
+      tone: getWeekTone(summary, goal.targetRange, summary.isCurrent, workouts.length),
     };
   });
 }
@@ -2182,20 +1996,6 @@ function getVisibleZoneCount(pulseStates) {
 
 function getCoverageLabelFromCount(activeCount) {
   return activeCount === 1 ? "1 zone lit" : `${activeCount} zones lit`;
-}
-
-function getAnatomicalTopZoneKeys(pulseStates, limit = 3) {
-  return Object.entries(pulseStates)
-    .filter(([zone, zoneState]) => ANATOMICAL_ZONES.has(zone) && zoneState.activation > TOP_ZONE_THRESHOLD)
-    .sort((a, b) => b[1].activation - a[1].activation)
-    .slice(0, limit)
-    .map(([zone]) => zone);
-}
-
-function getAnatomicalVisibleZoneCount(pulseStates) {
-  return Object.entries(pulseStates)
-    .filter(([zone, zoneState]) => ANATOMICAL_ZONES.has(zone) && zoneState.activation >= BODY_MAP_VISIBLE_THRESHOLD)
-    .length;
 }
 
 function getZoneDecayFactor(zoneConfig, daysAgo) {
@@ -2337,54 +2137,6 @@ function getPlanAllowedFormats(profile = state.profile) {
   return allowedFormats;
 }
 
-function getPlanItemFormat(item) {
-  if (!item) {
-    return null;
-  }
-
-  if (item.startsWith("GX: ")) {
-    return item.replace("GX: ", "");
-  }
-
-  const gymPlanMap = {
-    "Gym: Full body": "Gym Full body",
-    "Gym: Upper": "Gym Upper",
-    "Gym: Lower": "Gym Lower",
-    "Gym: Legs": "Gym Legs",
-    "Gym: Chest+Tri": "Gym Chest+Tri",
-    "Gym: Back+Bicep": "Gym Back+Bicep",
-    "Gym: Shoulders+Core": "Gym Shoulders+Core",
-  };
-
-  return gymPlanMap[item] || PLAN_ITEM_FORMAT_OPTIONS[item]?.[0] || null;
-}
-
-function getPlanItemLabel(item) {
-  if (!item) {
-    return "";
-  }
-
-  if (item.startsWith("GX: ")) {
-    return item.replace("GX: ", "");
-  }
-
-  return item.replace("Gym: ", "");
-}
-
-function getNextPlannedWorkout(profile = state.profile, referenceDate = state.currentDate) {
-  const program = generateWeeklyProgram(profile);
-  const currentWeek = getCalendarWeekSummary(referenceDate, 0);
-  const safeIndex = clamp(currentWeek.sessions, 0, Math.max(0, program.patternItems.length - 1));
-  const item = program.patternItems[safeIndex] || null;
-
-  return {
-    item,
-    format: getPlanItemFormat(item),
-    label: getPlanItemLabel(item),
-    index: safeIndex,
-  };
-}
-
 function getRecommendedFormat(summary, goalKey, profile = state.profile) {
   const allowedFormats = getPlanAllowedFormats(profile);
   const formatScores = Object.entries(FORMAT_LIBRARY)
@@ -2412,7 +2164,7 @@ function getRecommendedFormat(summary, goalKey, profile = state.profile) {
 function formatZones(zoneKeys) {
   const labels = zoneKeys.map((zone) => ZONE_LIBRARY[zone].label);
   if (labels.length <= 1) {
-    return labels[0] || "your recent progress";
+    return labels[0] || "your recent signal";
   }
 
   if (labels.length === 2) {
@@ -2439,6 +2191,10 @@ function getMomentumState({
     return "fresh_gain";
   }
 
+  if (visibleZoneCount < 2) {
+    return "flat";
+  }
+
   if (coolingRisk === "dropoff_risk") {
     return "slipping";
   }
@@ -2449,10 +2205,6 @@ function getMomentumState({
 
   if (coolingRisk === "cooling" || coolingRisk === "early_cooling") {
     return "cooling";
-  }
-
-  if (visibleZoneCount < 2) {
-    return "flat";
   }
 
   return "worth_protecting";
@@ -2575,16 +2327,11 @@ function getWeeklyLoadSubtext(weekly, pulseSummary) {
       ? ""
       : ` • Last workout ${formatRelativeDayLabel(pulseSummary.daysSinceLastWorkout)}`;
 
-  return `${formatSessionCount(weekly.sessions)} in the last ${ROLLING_LOAD_DAYS} days${recencyLabel}`;
+  return `${formatSessionCount(weekly.sessions)} in the last ${ROLLING_LOAD_DAYS} days • ${formatLoadValue(weekly.total)} load${recencyLabel}`;
 }
 
-function getWeekTransitionNarrative(currentWeek, previousWeek, recommendedFormat, referenceDate = state.currentDate) {
-  const daysIntoCurrentWeek = Math.max(
-    0,
-    diffDays(startOfDay(referenceDate), startOfDay(currentWeek.start)),
-  );
-
-  if (currentWeek.sessions > 0 || previousWeek.sessions === 0 || daysIntoCurrentWeek >= 2) {
+function getWeekTransitionNarrative(currentWeek, previousWeek, recommendedFormat) {
+  if (currentWeek.sessions > 0 || previousWeek.sessions === 0) {
     return null;
   }
 
@@ -2601,71 +2348,12 @@ function getWeekTransitionNarrative(currentWeek, previousWeek, recommendedFormat
       previousWeek.status === "above" || previousWeek.status === "in_range"
         ? "You did well last week. Keep it going."
         : "You started last week well. Keep the rhythm going.",
-    visualState:
-      previousWeek.status === "above" || previousWeek.status === "in_range" ? "positive" : "progress",
     pill: "New week",
     adherenceTitle: "Carry last week forward",
-    adherenceText: `${carryForward} Start this week with ${recommendedFormat} so your momentum carries forward.`,
+    adherenceText: `${carryForward} Start this week with ${recommendedFormat} so the map does not cool off between weeks.`,
     actionLabel: `Start with ${recommendedFormat}`,
     insightTitle: "Last week and next step",
-    insightText: `${previousWeek.label}: ${sessionLabel}. Start this week with ${recommendedFormat} to keep the streak alive.`,
-  };
-}
-
-function getPulseHeaderSubtext(
-  summary,
-  currentWeek,
-  previousWeek,
-  totalWorkouts = 0,
-  referenceDate = state.currentDate,
-) {
-  const daysIntoCurrentWeek = Math.max(
-    0,
-    diffDays(startOfDay(referenceDate), startOfDay(currentWeek.start)),
-  );
-
-  if (totalWorkouts === 0) {
-    return "Start with one class and Pulse will begin tracking your week.";
-  }
-
-  if (currentWeek.sessions === 0 && previousWeek.sessions > 0 && daysIntoCurrentWeek < 2) {
-    return `Last week went well. Start this week early to keep it going.`;
-  }
-
-  if (summary.momentumState === "fresh_gain") {
-    return "You made a strong start. One more session this week will build on it.";
-  }
-
-  if (summary.momentumState === "recovering") {
-    return "You reversed the slide. Repeat this once more and the comeback starts to feel stable.";
-  }
-
-  if (summary.momentumState === "worth_protecting") {
-    return "The week has real momentum now. The next win is protecting it with one more class.";
-  }
-
-  if (summary.momentumState === "cooling") {
-    return "You still have momentum, but this week needs another class soon.";
-  }
-
-  if (summary.momentumState === "slipping") {
-    return "Older sessions are still helping, but this week needs a fresh workout now.";
-  }
-
-  if (summary.momentumState === "flat") {
-    return "You have a good start to build from, but this week still needs one more meaningful session.";
-  }
-
-  return "Stay close to the plan this week and keep the next step simple.";
-}
-
-function getBodyResponseCopy(summary) {
-  const mostActiveZones = getAnatomicalTopZoneKeys(summary.zones);
-  const anatomicalCoverage = getAnatomicalVisibleZoneCount(summary.zones);
-
-  return {
-    mostActive: mostActiveZones.length ? formatZones(mostActiveZones) : "None",
-    coverage: anatomicalCoverage > 0 ? getCoverageLabelFromCount(anatomicalCoverage) : "No zones lit yet",
+    insightText: `${previousWeek.label}: ${formatLoadValue(previousWeek.total)} load across ${sessionLabel}. Start this week with ${recommendedFormat} to keep the streak alive.`,
   };
 }
 
@@ -3271,15 +2959,15 @@ function renderLogWorkout() {
 
 function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalWorkouts = 0) {
   const topZoneText = formatZones(summary.topZones);
-  const focusAreaInline = summary.focusArea?.inline || "your recent progress";
-  const focusAreaLabel = summary.focusArea?.label || "Recent progress";
+  const focusAreaInline = summary.focusArea?.inline || "your recent signal";
+  const focusAreaLabel = summary.focusArea?.label || "Recent signal";
   const recommendedFormat = summary.recommendedFormat || DEFAULT_HRX_FORMAT;
   const remainingSessions = Math.max(0, plannedSessions - adherenceWeek.sessions);
   const sessionProgress =
     adherenceWeek.status === "above"
-      ? "You are already above your weekly target, so the next win is recovery quality."
+      ? "You are already above your weekly load target, so the next win is recovery quality."
       : adherenceWeek.status === "in_range"
-        ? "You are already inside your weekly target zone."
+        ? "You are already inside your weekly load zone."
         : remainingSessions === 1
           ? "You are one session away from your weekly plan."
           : `You are ${remainingSessions} sessions away from your weekly plan.`;
@@ -3287,33 +2975,30 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
   if (totalWorkouts === 0) {
     return {
       headline: "Start your first week strong.",
-      visualState: "progress",
       pill: "Getting started",
       adherenceTitle: "Log your first class",
       adherenceText: `Your plan is ready. Start with one ${recommendedFormat} class and the Pulse will begin tracking your week.`,
       actionLabel: `Start with ${recommendedFormat}`,
       insightTitle: "How to begin",
-      insightText: `Your first class sets the tone for the week. ${recommendedFormat} is a strong place to begin.`,
+      insightText: `Your first class will establish the starting signal for the week. ${recommendedFormat} is a strong place to begin.`,
     };
   }
 
   if (summary.momentumState === "fresh_gain") {
     return {
       headline: "Momentum is building. Keep it going.",
-      visualState: totalWorkouts === 1 ? "progress" : "positive",
-      pill: "Building",
+      pill: "Fresh gain",
       adherenceTitle: "One more class locks this in",
-      adherenceText: `Your body is already responding. Another ${recommendedFormat} session this week will help the routine stick. ${sessionProgress}`,
+      adherenceText: `You have live signal on the map now. Another ${recommendedFormat} session this week will help the routine stick. ${sessionProgress}`,
       actionLabel: `Protect with ${recommendedFormat}`,
       insightTitle: "What changed today",
-      insightText: `${topZoneText} responded today. ${sessionProgress} Another ${recommendedFormat} class soon will turn this into a pattern.`,
+      insightText: `${topZoneText} showed activity today. ${sessionProgress} Another ${recommendedFormat} class before it cools will turn this into a pattern.`,
     };
   }
 
   if (summary.momentumState === "recovering") {
     return {
       headline: "You are back on track. Repeat it this week.",
-      visualState: "positive",
       pill: "Recovering",
       adherenceTitle: "One more class keeps the comeback alive",
       adherenceText: `That last class reversed the slide. Repeat it once more this week and the comeback will feel real. ${sessionProgress}`,
@@ -3326,13 +3011,12 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
   if (summary.momentumState === "worth_protecting") {
     return {
       headline: "This week is working. Keep it alive.",
-      visualState: "positive",
       pill: "Worth protecting",
       adherenceTitle: "Protect the momentum you built",
-      adherenceText: `You have built real momentum this week. Protect it before ${focusAreaInline} fades any further. ${sessionProgress}`,
+      adherenceText: `You have built a strong recent signal. Protect it before ${focusAreaInline} cools any further. ${sessionProgress}`,
       actionLabel: `Protect with ${recommendedFormat}`,
       insightTitle: "How to protect this week",
-      insightText: `The map is broad, the week is moving, and ${focusAreaInline} is the first place likely to fade. ${recommendedFormat} is the best class to protect the week.`,
+      insightText: `The map is broad, load is moving, and ${focusAreaInline} is the first place likely to fade. ${recommendedFormat} is the best class to protect the week.`,
     };
   }
 
@@ -3340,28 +3024,26 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
     const isEarlyCooling = summary.coolingRisk === "early_cooling";
     return {
       headline: "This week is slipping. Catch it now.",
-      visualState: "risk",
       pill: isEarlyCooling ? "Cooling early" : "Cooling",
       adherenceTitle: `${focusAreaLabel} is starting to cool`,
-      adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class this week gets the week back on track while the save is still easy. ${sessionProgress}`,
+      adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class this week restores the curve while the week is still easy to save. ${sessionProgress}`,
       actionLabel: `Restore with ${recommendedFormat}`,
       insightTitle: isEarlyCooling ? "What is starting to cool" : "What is cooling now",
       insightText: isEarlyCooling
         ? `${focusAreaLabel} is slipping before the week is complete. ${sessionProgress} One ${recommendedFormat} class will widen the map again while the save is easy.`
-        : `${focusAreaLabel} is fading around ${focusAreaInline}, and the week is still short of target. ${recommendedFormat} is the fastest way to bring the week back into shape.`,
+        : `Recent signal is fading around ${focusAreaInline}, and load is still short of target. ${recommendedFormat} is the fastest way to bring the week back into shape.`,
     };
   }
 
   if (summary.momentumState === "slipping") {
     return {
       headline: "This week is slipping. Catch it now.",
-      visualState: "risk",
       pill: summary.coolingRisk === "dropoff_risk" ? "Ready to restart" : "Momentum slipping",
       adherenceTitle: summary.coolingRisk === "dropoff_risk" ? "A single session restarts the map" : `${focusAreaLabel} is fading this week`,
       adherenceText:
         summary.coolingRisk === "dropoff_risk"
-          ? `Your recent progress has mostly faded, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`
-          : `Your recent progress is fading, especially around ${focusAreaInline}. One ${recommendedFormat} class is the fastest way to bring it back. ${sessionProgress}`,
+          ? `The recent signal has mostly cooled off, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`
+          : `The recent signal is fading, especially around ${focusAreaInline}. One ${recommendedFormat} class is the fastest way to bring it back. ${sessionProgress}`,
       actionLabel:
         summary.coolingRisk === "dropoff_risk"
           ? `Restart with ${recommendedFormat}`
@@ -3370,17 +3052,16 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
       insightText:
         summary.coolingRisk === "dropoff_risk"
           ? `The map has flattened around ${focusAreaInline}. One meaningful ${recommendedFormat} class will wake it back up and restart the week.`
-          : `${focusAreaLabel} is fading and the week is slipping. One ${recommendedFormat} class brings the map back before this turns into a reset.`,
+          : `${focusAreaLabel} is fading and the weekly signal is slipping. One ${recommendedFormat} class brings the map back before this turns into a reset.`,
     };
   }
 
   if (summary.momentumState === "flat") {
     return {
       headline: "Momentum is building. Keep it going.",
-      visualState: "progress",
-      pill: "Getting going",
+      pill: "Signal started",
       adherenceTitle: "Add one more session this week",
-      adherenceText: `You have started creating visible progress. Another ${recommendedFormat} workout this week will make the pattern easier to see. ${sessionProgress}`,
+      adherenceText: `You have started creating visible signal. Another ${recommendedFormat} workout this week will make the pattern easier to see. ${sessionProgress}`,
       actionLabel: `Add ${recommendedFormat}`,
       insightTitle: "What changed today",
       insightText: `${topZoneText} has started responding. One more ${recommendedFormat} workout this week will make the change more visible.`,
@@ -3389,10 +3070,9 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
 
   return {
     headline: "This week is slipping. Catch it now.",
-    visualState: "risk",
     pill: "Ready to restart",
     adherenceTitle: "A single session restarts the map",
-    adherenceText: `Your recent progress has mostly faded, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`,
+    adherenceText: `The recent signal has mostly cooled off, but one meaningful ${recommendedFormat} session will wake the map back up. ${sessionProgress}`,
     actionLabel: `Restart with ${recommendedFormat}`,
     insightTitle: "What your body needs now",
     insightText: `The map has flattened, especially in ${focusAreaInline}. The easiest restart is one ${recommendedFormat} class this week.`,
@@ -3620,22 +3300,6 @@ function getCuroVisualState(headerState) {
   return "default";
 }
 
-function getResolvedHeaderState(narrativeState, fallbackHeaderState) {
-  if (narrativeState === "risk") {
-    return "risk";
-  }
-
-  if (narrativeState === "positive") {
-    return "positive";
-  }
-
-  if (narrativeState === "progress" && fallbackHeaderState === "positive") {
-    return "positive";
-  }
-
-  return narrativeState || fallbackHeaderState || "progress";
-}
-
 function renderPulse() {
   if (!state.selectedUserId) {
     renderPulseWeekDots(
@@ -3647,7 +3311,6 @@ function renderPulse() {
       })),
     );
     pulseHeadline.textContent = "Add a member to start Pulse";
-    pulseHeaderSubtext.textContent = "Create a member, set the goal, and Pulse will turn workouts into a weekly story.";
     pulseMomentumPill.textContent = "Waiting";
     pulseCuroVisual.src = CURO_VISUAL_LIBRARY.default;
     pulseCardTop.classList.remove("is-progress", "is-positive", "is-risk");
@@ -3666,10 +3329,6 @@ function renderPulse() {
     goalAdherenceText.textContent = "Add member | Log workout";
     adherenceSplitLabel.textContent = "--";
     adherenceProgressLabel.textContent = "0/0 done";
-    bodyMapMostActive.textContent = "Waiting";
-    bodyMapMostActive.classList.remove("is-empty");
-    bodyMapCoverage.textContent = "0 zones lit";
-    bodyMapCoverage.classList.remove("is-empty");
     renderAdherenceProgressDots(0, 1);
     primaryAction.textContent = "Create first member";
     renderPulseMap(
@@ -3688,24 +3347,19 @@ function renderPulse() {
   const sixWeekJourney = getSixWeekJourney(state.currentDate, state.selectedUserId);
   const currentCalendarWeek = getCalendarWeekSummary(state.currentDate, 0);
   const previousCalendarWeek = getCalendarWeekSummary(state.currentDate, -1);
-  const currentJourneyWeek = getJourneyWeekSummary(state.currentDate, 0, state.selectedUserId);
-  const previousJourneyWeek = getJourneyWeekSummary(state.currentDate, -1, state.selectedUserId);
-  const bodyResponse = getBodyResponseCopy(pulseSummary);
-  const nextPlannedWorkout = getNextPlannedWorkout(state.profile, state.currentDate);
   const latestWorkout = getLatestCompletedWorkout(workouts);
   const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
   const defaultNarrative = getPulseNarrative(
     pulseSummary,
-    currentJourneyWeek,
+    currentCalendarWeek,
     goal,
     Number(state.profile.frequency),
     workouts.length,
   );
   const weekTransitionNarrative = getWeekTransitionNarrative(
-    currentJourneyWeek,
-    previousJourneyWeek,
+    currentCalendarWeek,
+    previousCalendarWeek,
     pulseSummary.recommendedFormat || DEFAULT_HRX_FORMAT,
-    state.currentDate,
   );
   const narrative = weekTransitionNarrative || defaultNarrative;
   const adherence = getGoalAdherenceCopy(
@@ -3715,8 +3369,6 @@ function renderPulse() {
     Number(state.profile.frequency),
     program,
   );
-  const isRecoveryAction =
-    adherence.actionLabel === "Recover" && currentCalendarWeek.sessions >= Number(state.profile.frequency);
   const latestWorkoutInWindow = weekly.latestWorkout;
   const previousWeeklyTotal = roundLoad(
     Math.max(0, weekly.total - (latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0)),
@@ -3724,27 +3376,19 @@ function renderPulse() {
   const plannedSessions = Number(state.profile.frequency);
   const headerDiagnostics = getPulseHeaderDiagnostics(
     pulseSummary,
-    currentJourneyWeek,
+    currentCalendarWeek,
     plannedSessions,
     workouts.length,
   );
-  const fallbackHeaderState = headerDiagnostics.headerState;
-  const displayState = getResolvedHeaderState(narrative.visualState, fallbackHeaderState);
+  const { headerState } = headerDiagnostics;
 
   renderPulseWeekDots(sixWeekJourney);
   pulseHeadline.textContent = narrative.headline;
-  pulseHeaderSubtext.textContent = getPulseHeaderSubtext(
-    pulseSummary,
-    currentJourneyWeek,
-    previousJourneyWeek,
-    workouts.length,
-    state.currentDate,
-  );
   pulseMomentumPill.textContent = narrative.pill;
-  pulseCuroVisual.src = CURO_VISUAL_LIBRARY[getCuroVisualState(displayState)];
+  pulseCuroVisual.src = CURO_VISUAL_LIBRARY[getCuroVisualState(headerState)];
   pulseCardTop.classList.remove("is-progress", "is-positive", "is-risk");
   pulseCardTop.classList.add(
-    displayState === "positive" ? "is-positive" : displayState === "risk" ? "is-risk" : "is-progress",
+    headerState === "positive" ? "is-positive" : headerState === "risk" ? "is-risk" : "is-progress",
   );
   pulseMomentumPill.classList.remove("is-cooling", "is-risk", "is-recovering", "is-light", "is-moderate", "is-high", "is-very-high");
   if (workouts.length > 0) {
@@ -3752,10 +3396,6 @@ function renderPulse() {
     pulseMomentumPill.classList.toggle("is-risk", pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "dropoff_risk");
     pulseMomentumPill.classList.toggle("is-recovering", pulseSummary.momentumState === "fresh_gain" || pulseSummary.momentumState === "recovering");
   }
-  bodyMapMostActive.textContent = bodyResponse.mostActive;
-  bodyMapMostActive.classList.toggle("is-empty", bodyResponse.mostActive === "None");
-  bodyMapCoverage.textContent = bodyResponse.coverage;
-  bodyMapCoverage.classList.toggle("is-empty", bodyResponse.coverage === "No zones lit yet");
   pulseLoadValue.textContent = weekly.targetLabel;
   pulseLoadSubtext.textContent = getWeeklyLoadSubtext(weekly, pulseSummary);
 
@@ -3783,12 +3423,7 @@ function renderPulse() {
   adherenceSplitLabel.textContent = adherence.split;
   adherenceProgressLabel.textContent = adherence.progress;
   renderAdherenceProgressDots(currentCalendarWeek.sessions, Number(state.profile.frequency));
-  primaryAction.textContent =
-    isRecoveryAction
-      ? "Recover"
-      : nextPlannedWorkout.label
-        ? `Log ${nextPlannedWorkout.label}`
-        : adherence.actionLabel || "View goal plan";
+  primaryAction.textContent = adherence.actionLabel || "View goal plan";
 
   renderPulseMap(pulseSummary.zones);
 }
@@ -3818,12 +3453,6 @@ function resetAllUsers() {
 
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    if (button.dataset.tabTarget === "log" && state.selectedUserId) {
-      const { recommendedFormat } = getPulseActionContext();
-      openLogWorkout(recommendedFormat);
-      return;
-    }
-
     state.activeTab = button.dataset.tabTarget;
     syncTabHash();
     renderAll();
@@ -3856,15 +3485,8 @@ primaryAction.addEventListener("click", () => {
     return;
   }
 
-  const { isRecoveryAction, recommendedFormat } = getPulseActionContext();
-
-  if (isRecoveryAction) {
-    shiftCurrentDate(1);
-    return;
-  }
-
-  syncLogWorkoutSelectionForFormat(recommendedFormat);
-  logWorkout(recommendedFormat);
+  const recommendedFormat = getPulseSummary().recommendedFormat;
+  openLogWorkout(recommendedFormat);
 });
 
 addUserButton.addEventListener("click", addUser);
