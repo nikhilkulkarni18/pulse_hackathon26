@@ -15,10 +15,10 @@ const BODY_ASSET_LIBRARY = {
 
 const GOAL_LIBRARY = {
   weight_loss: {
-    label: "Weight loss",
-    description: "Lose body fat and build a steady routine.",
+    label: "Lose weight",
+    description: "Burn body fat with a routine you can actually repeat.",
     baseRange: [15, 20],
-    intent: "Build a repeatable calorie deficit with full-body effort.",
+    intent: "Build a repeatable calorie-burning routine with enough recovery to stay consistent.",
   },
   strength: {
     label: "Build strength",
@@ -27,17 +27,54 @@ const GOAL_LIBRARY = {
     intent: "Prioritize progressive overload and recovery rhythm.",
   },
   general_fitness: {
-    label: "General fitness",
-    description: "Build an all-round routine that feels sustainable.",
+    label: "Stay fit",
+    description: "Build a balanced routine across strength, cardio, and recovery.",
     baseRange: [13, 18],
-    intent: "Balance endurance, resilience, and routine.",
+    intent: "Balance strength, conditioning, and recovery without overreaching.",
   },
 };
 
 const FREQUENCY_LIBRARY = {
+  2: { label: "2 days", description: "A low-friction start for a busy week.", modifier: -4 },
   3: { label: "3 days", description: "A lighter but realistic week.", modifier: -2 },
   4: { label: "4 days", description: "Default demo rhythm.", modifier: 0 },
   5: { label: "5 days", description: "A more ambitious training week.", modifier: 3 },
+};
+
+const LEVEL_LIBRARY = {
+  beginner: {
+    label: "First time / little recent training",
+    description: "Keep the first week simple and build confidence fast.",
+    modifier: -3,
+    titleTag: "Starter",
+  },
+  restarting: {
+    label: "Restarting after a break",
+    description: "Get the rhythm back before pushing intensity again.",
+    modifier: -1,
+    titleTag: "Comeback",
+  },
+  regular: {
+    label: "Already working out regularly",
+    description: "Use a little more structure and a higher target zone.",
+    modifier: 2,
+    titleTag: "Momentum",
+  },
+};
+
+const SPLIT_LIBRARY = {
+  full_body: {
+    label: "Full body",
+    description: "Simple, broad coverage across the whole week.",
+  },
+  upper_lower: {
+    label: "Upper / lower",
+    description: "Alternate upper-body and lower-body focus days.",
+  },
+  two_muscles: {
+    label: "Two muscles per day",
+    description: "A more focused split for regular strength users.",
+  },
 };
 
 const SUPPORT_LIBRARY = {
@@ -184,6 +221,8 @@ const PROFILE_MODES = {
       name: "Aisha Rao",
       goal: "general_fitness",
       frequency: "3",
+      startingPoint: "beginner",
+      splitPreference: "full_body",
     },
     planCreated: false,
   },
@@ -194,6 +233,8 @@ const PROFILE_MODES = {
       name: "Aisha Rao",
       goal: "weight_loss",
       frequency: "4",
+      startingPoint: "regular",
+      splitPreference: "upper_lower",
     },
     planCreated: true,
   },
@@ -306,16 +347,26 @@ const BEHAVIOR_SCENARIOS = {
   },
 };
 
-const GOAL_STEPS = [
+const GOAL_STEP_LIBRARY = [
   {
     key: "goal",
     title: "What are you working toward?",
     description: "Pick the one thing that matters most right now.",
   },
   {
+    key: "starting_point",
+    title: "Which best describes you right now?",
+    description: "This helps us set the right pace for week one.",
+  },
+  {
     key: "rhythm",
-    title: "How often do you want to train?",
+    title: "How many days can you realistically commit each week?",
     description: "Set a weekly rhythm that feels realistic for you.",
+  },
+  {
+    key: "split",
+    title: "What kind of split do you prefer?",
+    description: "Only show extra structure when it helps the plan feel more tailored.",
   },
 ];
 
@@ -355,7 +406,10 @@ const setupPreviewTitle = document.getElementById("setupPreviewTitle");
 const setupPreviewBody = document.getElementById("setupPreviewBody");
 const previewTargetRange = document.getElementById("previewTargetRange");
 const previewIntent = document.getElementById("previewIntent");
-const previewTone = document.getElementById("previewTone");
+const previewSplit = document.getElementById("previewSplit");
+const previewCadence = document.getElementById("previewCadence");
+const previewWeeklyStructure = document.getElementById("previewWeeklyStructure");
+const previewCuroSummary = document.getElementById("previewCuroSummary");
 const centerConsultNudge = document.getElementById("centerConsultNudge");
 const bcaNudge = document.getElementById("bcaNudge");
 const viewPulseFromPlan = document.getElementById("viewPulseFromPlan");
@@ -382,6 +436,78 @@ const bodyAssetPreparation = prepareBodyReferenceOverlays();
 function cloneProfile(modeKey) {
   const source = PROFILE_MODES[modeKey].profile;
   return { ...source };
+}
+
+function shouldShowSplitStep(profile = state.profile) {
+  return profile.goal === "strength" || profile.startingPoint === "regular";
+}
+
+function getGoalSteps(profile = state.profile) {
+  return GOAL_STEP_LIBRARY.filter((step) => step.key !== "split" || shouldShowSplitStep(profile));
+}
+
+function clampGoalStep() {
+  state.goalStep = Math.min(state.goalStep, getGoalSteps().length - 1);
+}
+
+function getDefaultSplit(profile = state.profile) {
+  const frequency = Number(profile.frequency);
+
+  if (profile.goal === "strength") {
+    if (profile.startingPoint === "regular" && frequency >= 5) {
+      return "two_muscles";
+    }
+
+    if (
+      (profile.startingPoint === "regular" && frequency >= 3) ||
+      (profile.startingPoint === "restarting" && frequency >= 4)
+    ) {
+      return "upper_lower";
+    }
+
+    return "full_body";
+  }
+
+  if (profile.goal === "weight_loss") {
+    return profile.startingPoint === "regular" && frequency >= 4 ? "upper_lower" : "full_body";
+  }
+
+  return profile.startingPoint === "regular" && frequency >= 4 ? "upper_lower" : "full_body";
+}
+
+function getResolvedSplitPreference(profile = state.profile) {
+  const frequency = Number(profile.frequency);
+  const preferred = profile.splitPreference || getDefaultSplit(profile);
+
+  if (!shouldShowSplitStep(profile)) {
+    return getDefaultSplit(profile);
+  }
+
+  if (preferred === "upper_lower" && frequency < 3) {
+    return "full_body";
+  }
+
+  if (preferred === "two_muscles") {
+    if (profile.goal !== "strength" || profile.startingPoint !== "regular" || frequency < 5) {
+      return profile.goal === "strength" && profile.startingPoint === "regular" && frequency >= 3
+        ? "upper_lower"
+        : getDefaultSplit(profile);
+    }
+  }
+
+  if (profile.goal === "general_fitness" && preferred === "two_muscles") {
+    return getDefaultSplit(profile);
+  }
+
+  if (profile.goal === "weight_loss" && preferred === "two_muscles") {
+    return frequency >= 4 ? "upper_lower" : "full_body";
+  }
+
+  return preferred;
+}
+
+function syncSplitPreference() {
+  state.profile.splitPreference = getResolvedSplitPreference(state.profile);
 }
 
 function startOfDay(date) {
@@ -503,16 +629,24 @@ async function prepareBodyReferenceOverlays() {
   }
 }
 
-function getGoalConfig() {
-  const goal = GOAL_LIBRARY[state.profile.goal];
-  const frequencyModifier = FREQUENCY_LIBRARY[state.profile.frequency].modifier;
+function getGoalConfigForProfile(profile) {
+  const goal = GOAL_LIBRARY[profile.goal];
+  const frequencyModifier = FREQUENCY_LIBRARY[profile.frequency].modifier;
+  const levelModifier = LEVEL_LIBRARY[profile.startingPoint].modifier;
+  const minimumLoad = 8;
+  const maximumLoad = LOAD_MAX - 2;
+
   return {
     ...goal,
     targetRange: [
-      goal.baseRange[0] + frequencyModifier,
-      goal.baseRange[1] + frequencyModifier,
+      clamp(goal.baseRange[0] + frequencyModifier + levelModifier, minimumLoad, maximumLoad),
+      clamp(goal.baseRange[1] + frequencyModifier + levelModifier, minimumLoad + 2, maximumLoad),
     ],
   };
+}
+
+function getGoalConfig() {
+  return getGoalConfigForProfile(state.profile);
 }
 
 function getScenarioConfig() {
@@ -977,6 +1111,7 @@ function renderScenarioControls() {
   renderButtonGroup(profileModeOptions, PROFILE_MODES, state.profileMode, (modeKey) => {
     state.profileMode = modeKey;
     state.profile = cloneProfile(modeKey);
+    syncSplitPreference();
     state.planCreated = PROFILE_MODES[modeKey].planCreated;
     state.goalStep = 0;
     if (modeKey === "new_user" && state.behavior !== "first_workout") {
@@ -993,11 +1128,13 @@ function renderScenarioControls() {
     if (behaviorKey === "first_workout") {
       state.profileMode = "new_user";
       state.profile = cloneProfile("new_user");
+      syncSplitPreference();
       state.planCreated = false;
       state.goalStep = 0;
     } else if (state.profileMode === "new_user") {
       state.profileMode = "existing_user";
       state.profile = cloneProfile("existing_user");
+      syncSplitPreference();
       state.planCreated = true;
     }
     renderAll();
@@ -1005,8 +1142,9 @@ function renderScenarioControls() {
 }
 
 function renderGoalStepper() {
+  const steps = getGoalSteps();
   goalStepper.innerHTML = "";
-  GOAL_STEPS.forEach((step, index) => {
+  steps.forEach((step, index) => {
     const chip = document.createElement("div");
     chip.className = "step-indicator";
     if (index === state.goalStep) {
@@ -1033,16 +1171,292 @@ function renderChoiceGrid(target, library, activeKey, onSelect, className = "cho
   });
 }
 
+function getPlanDescription(profile, goal) {
+  const cadence = `${profile.frequency}-day`;
+
+  if (profile.startingPoint === "beginner") {
+    return `${goal.description} Built for a lower-friction ${cadence} rhythm.`;
+  }
+
+  if (profile.startingPoint === "restarting") {
+    return `${goal.description} Built to bring your ${cadence} rhythm back without overreaching.`;
+  }
+
+  return `${goal.description} Built for a more structured ${cadence} rhythm.`;
+}
+
+function getPlanFocus(profile, splitKey) {
+  if (profile.goal === "weight_loss") {
+    if (profile.startingPoint === "beginner") {
+      return "Consistency first";
+    }
+
+    if (profile.startingPoint === "restarting") {
+      return "Rebuild the burn";
+    }
+
+    return splitKey === "upper_lower"
+      ? "Conditioning with structure"
+      : "Steady broad burn";
+  }
+
+  if (profile.goal === "strength") {
+    if (profile.startingPoint === "beginner") {
+      return "Strength basics";
+    }
+
+    if (profile.startingPoint === "restarting") {
+      return "Rebuild lifting rhythm";
+    }
+
+    return splitKey === "two_muscles"
+      ? "Focused strength split"
+      : "Structured strength week";
+  }
+
+  if (profile.startingPoint === "beginner") {
+    return "Balanced base";
+  }
+
+  if (profile.startingPoint === "restarting") {
+    return "All-round comeback";
+  }
+
+  return splitKey === "upper_lower"
+    ? "Balanced structure"
+    : "Broad sustainable mix";
+}
+
+function getWeeklyStructure(profile, splitKey) {
+  const frequency = Number(profile.frequency);
+
+  if (profile.goal === "general_fitness") {
+    if (frequency === 2) {
+      return [
+        "1 strength or full-body anchor session",
+        "1 cardio or mobility-led session",
+      ];
+    }
+
+    if (frequency === 3) {
+      return [
+        "1 strength or full-body anchor",
+        "1 conditioning session",
+        "1 yoga or mobility recovery session",
+      ];
+    }
+
+    if (splitKey === "upper_lower") {
+      return frequency === 4
+        ? [
+            "1 upper-body strength day",
+            "1 lower-body strength day",
+            "1 conditioning day",
+            "1 yoga or mobility reset",
+          ]
+        : [
+            "1 upper-body strength day",
+            "1 lower-body strength day",
+            "1 conditioning day",
+            "1 yoga or mobility reset",
+            "1 flexible fun session",
+          ];
+    }
+
+    return frequency === 4
+      ? [
+          "1 full-body strength anchor",
+          "1 mixed strength session",
+          "1 conditioning day",
+          "1 recovery or yoga reset",
+        ]
+      : [
+          "1 full-body strength anchor",
+          "1 mixed strength session",
+          "1 conditioning day",
+          "1 recovery or yoga reset",
+          "1 flexible fun session",
+        ];
+  }
+
+  if (profile.goal === "weight_loss") {
+    if (frequency === 2) {
+      return [
+        "1 full-body or conditioning anchor",
+        "1 second full-body or conditioning anchor",
+      ];
+    }
+
+    if (frequency === 3) {
+      return [
+        "1 full-body or conditioning anchor",
+        "1 second conditioning-focused anchor",
+        "1 recovery or mobility session",
+      ];
+    }
+
+    if (splitKey === "upper_lower") {
+      return frequency === 4
+        ? [
+            "1 upper-body strength day",
+            "1 lower-body strength day",
+            "1 conditioning day",
+            "1 yoga or mobility reset",
+          ]
+        : [
+            "1 upper-body strength day",
+            "1 lower-body strength day",
+            "1 conditioning day",
+            "1 second conditioning or mixed day",
+            "1 recovery reset",
+          ];
+    }
+
+    return frequency === 4
+      ? [
+          "1 conditioning anchor",
+          "1 second conditioning session",
+          "1 strength session",
+          "1 yoga or mobility reset",
+        ]
+      : [
+          "1 conditioning anchor",
+          "1 second conditioning session",
+          "1 strength session",
+          "1 recovery reset",
+          "1 extra mixed session if energy is good",
+        ];
+  }
+
+  if (splitKey === "two_muscles") {
+    return [
+      "1 chest + triceps focus day",
+      "1 back + biceps focus day",
+      "1 legs + glutes focus day",
+      "1 shoulders + core focus day",
+      "1 lighter accessory or recovery pump day",
+    ];
+  }
+
+  if (splitKey === "upper_lower") {
+    if (frequency === 3) {
+      return [
+        "1 upper-body strength day",
+        "1 lower-body strength day",
+        "1 mobility or light conditioning day",
+      ];
+    }
+
+    return frequency === 4
+      ? [
+          "1 upper-body strength day",
+          "1 lower-body strength day",
+          "1 second upper-body day",
+          "1 second lower-body day",
+        ]
+      : [
+          "1 upper-body strength day",
+          "1 lower-body strength day",
+          "1 second upper-body day",
+          "1 second lower-body day",
+          "1 lighter accessory or conditioning day",
+        ];
+  }
+
+  if (frequency === 2) {
+    return [
+      "1 full-body strength day",
+      "1 second full-body strength day",
+    ];
+  }
+
+  if (frequency === 3) {
+    return [
+      "1 full-body strength day",
+      "1 second full-body strength day",
+      "1 mobility or light conditioning session",
+    ];
+  }
+
+  return frequency === 4
+    ? [
+        "1 full-body strength day",
+        "1 upper-body accessory day",
+        "1 lower-body accessory day",
+        "1 mobility or recovery reset",
+      ]
+    : [
+        "1 full-body strength day",
+        "1 second full-body strength day",
+        "1 upper-body accessory day",
+        "1 lower-body accessory day",
+        "1 mobility or recovery reset",
+      ];
+}
+
+function getCuroPlanSummary(profile, splitKey, goal) {
+  const splitLabel = SPLIT_LIBRARY[splitKey].label.toLowerCase();
+  const cadence = FREQUENCY_LIBRARY[profile.frequency].label.toLowerCase();
+
+  if (profile.startingPoint === "beginner") {
+    return `This ${splitLabel} week keeps the barrier low, gives you enough variety to feel progress, and makes ${cadence} feel easy to repeat.`;
+  }
+
+  if (profile.startingPoint === "restarting") {
+    return `This ${splitLabel} week is about getting your rhythm back. It gives you enough quality work to feel momentum again without making recovery the blocker.`;
+  }
+
+  if (profile.goal === "strength" && splitKey === "two_muscles") {
+    return `Because you already train regularly, this focused split adds more structure without pushing the weekly load outside your target zone.`;
+  }
+
+  if (goal.label === "Stay fit") {
+    return `You do not need a hardcore week to stay fit. This setup keeps strength, conditioning, and recovery all alive in the same plan.`;
+  }
+
+  return `This ${splitLabel} setup matches the work you already do well, while keeping the week balanced enough to repeat next week too.`;
+}
+
+function generateWeeklyProgram(profile = state.profile) {
+  const goal = getGoalConfigForProfile(profile);
+  const splitKey = getResolvedSplitPreference(profile);
+  const level = LEVEL_LIBRARY[profile.startingPoint];
+
+  return {
+    title: `${goal.label} ${level.titleTag.toLowerCase()} plan`,
+    description: getPlanDescription(profile, goal),
+    targetRange: goal.targetRange,
+    focus: getPlanFocus(profile, splitKey),
+    split: SPLIT_LIBRARY[splitKey].label,
+    cadence: `${profile.frequency} days each week`,
+    weeklyStructure: getWeeklyStructure(profile, splitKey),
+    curoSummary: getCuroPlanSummary(profile, splitKey, goal),
+  };
+}
+
 function renderGoalStepContent() {
   goalStepContent.innerHTML = "";
 
-  const stepKey = GOAL_STEPS[state.goalStep].key;
+  const stepKey = getGoalSteps()[state.goalStep].key;
 
   if (stepKey === "goal") {
     const grid = document.createElement("div");
     grid.className = "choice-grid";
     renderChoiceGrid(grid, GOAL_LIBRARY, state.profile.goal, (goalKey) => {
       state.profile.goal = goalKey;
+      syncSplitPreference();
+      markPlanDirty();
+      renderAll();
+    });
+    goalStepContent.appendChild(grid);
+  }
+
+  if (stepKey === "starting_point") {
+    const grid = document.createElement("div");
+    grid.className = "choice-grid";
+    renderChoiceGrid(grid, LEVEL_LIBRARY, state.profile.startingPoint, (startingPointKey) => {
+      state.profile.startingPoint = startingPointKey;
+      syncSplitPreference();
       markPlanDirty();
       renderAll();
     });
@@ -1054,36 +1468,64 @@ function renderGoalStepContent() {
     grid.className = "segmented-grid";
     renderChoiceGrid(grid, FREQUENCY_LIBRARY, state.profile.frequency, (frequencyKey) => {
       state.profile.frequency = frequencyKey;
+      syncSplitPreference();
       markPlanDirty();
       renderAll();
     }, "segmented-button");
     goalStepContent.appendChild(grid);
   }
+
+  if (stepKey === "split") {
+    const grid = document.createElement("div");
+    grid.className = "choice-grid";
+    renderChoiceGrid(grid, SPLIT_LIBRARY, getResolvedSplitPreference(state.profile), (splitKey) => {
+      state.profile.splitPreference = splitKey;
+      syncSplitPreference();
+      markPlanDirty();
+      renderAll();
+    });
+    goalStepContent.appendChild(grid);
+
+    const hint = document.createElement("p");
+    hint.className = "step-hint";
+    hint.textContent = "If this feels too advanced, we will keep the plan broad and default to full body.";
+    goalStepContent.appendChild(hint);
+  }
 }
 
 function renderGoalPlan() {
-  const goal = getGoalConfig();
-
   if (!state.planCreated) {
     planEmptyState.classList.remove("hidden");
     planSummary.classList.add("hidden");
     return;
   }
 
+  const program = generateWeeklyProgram();
+
   planEmptyState.classList.add("hidden");
   planSummary.classList.remove("hidden");
-  setupPreviewTitle.textContent = `${goal.label} plan`;
-  setupPreviewBody.textContent = goal.description;
-  previewTargetRange.textContent = `${goal.targetRange[0]}-${goal.targetRange[1]} load`;
-  previewIntent.textContent = goal.intent;
-  previewTone.textContent = `${FREQUENCY_LIBRARY[state.profile.frequency].label} each week`;
+  setupPreviewTitle.textContent = program.title;
+  setupPreviewBody.textContent = program.description;
+  previewTargetRange.textContent = `${program.targetRange[0]}-${program.targetRange[1]} load`;
+  previewIntent.textContent = program.focus;
+  previewSplit.textContent = program.split;
+  previewCadence.textContent = program.cadence;
+  previewWeeklyStructure.innerHTML = "";
+  program.weeklyStructure.forEach((item) => {
+    const listItem = document.createElement("li");
+    listItem.textContent = item;
+    previewWeeklyStructure.appendChild(listItem);
+  });
+  previewCuroSummary.textContent = program.curoSummary;
 }
 
 function renderGoal() {
-  const step = GOAL_STEPS[state.goalStep];
+  clampGoalStep();
+  const steps = getGoalSteps();
+  const step = steps[state.goalStep];
   goalStepTitle.textContent = step.title;
   goalStepDescription.textContent = step.description;
-  goalStepCount.textContent = `Step ${state.goalStep + 1} of ${GOAL_STEPS.length}`;
+  goalStepCount.textContent = `Step ${state.goalStep + 1} of ${steps.length}`;
   renderGoalStepper();
   renderGoalStepContent();
   renderGoalPlan();
@@ -1091,7 +1533,7 @@ function renderGoal() {
   goalBackButton.disabled = state.goalStep === 0;
   goalBackButton.style.visibility = state.goalStep === 0 ? "hidden" : "visible";
 
-  if (state.goalStep === GOAL_STEPS.length - 1) {
+  if (state.goalStep === steps.length - 1) {
     goalNextButton.textContent = "Create my plan";
   } else {
     goalNextButton.textContent = "Next";
@@ -1265,6 +1707,7 @@ function resetDemo() {
   state.profileMode = "existing_user";
   state.behavior = "building";
   state.profile = cloneProfile("existing_user");
+  syncSplitPreference();
   state.planCreated = PROFILE_MODES.existing_user.planCreated;
   state.goalStep = 0;
   syncTabHash();
@@ -1287,12 +1730,15 @@ goalBackButton.addEventListener("click", () => {
 });
 
 goalNextButton.addEventListener("click", () => {
-  if (state.goalStep < GOAL_STEPS.length - 1) {
+  const steps = getGoalSteps();
+
+  if (state.goalStep < steps.length - 1) {
     state.goalStep += 1;
     renderGoal();
     return;
   }
 
+  syncSplitPreference();
   state.planCreated = true;
   renderGoalPlan();
 });
@@ -1333,4 +1779,5 @@ if (initialHash === "goal" || initialHash === "pulse") {
   state.activeTab = initialHash;
 }
 
+syncSplitPreference();
 renderAll();
