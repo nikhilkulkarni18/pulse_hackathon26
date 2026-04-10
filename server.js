@@ -5,7 +5,11 @@ const path = require("path");
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = "127.0.0.1";
 const ROOT_DIR = __dirname;
-const ENTRY_PATH = "/01%20Mockup/";
+const DEFAULT_ENTRY_PATH = "/01%20Mockup/";
+const requestedEntryPath = process.env.ENTRY_PATH || DEFAULT_ENTRY_PATH;
+const ENTRY_PATH = requestedEntryPath.startsWith("/")
+  ? requestedEntryPath
+  : `/${requestedEntryPath}`;
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",

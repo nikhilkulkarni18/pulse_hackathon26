@@ -5,6 +5,8 @@
   "description": "Local static server for the Cult Pulse hackathon prototype.",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "start:v1": "PORT=3000 ENTRY_PATH='/01%20Mockup/' node server.js",
+    "start:v2": "PORT=3001 ENTRY_PATH='/02%20Mockup%20v2/' node server.js"
   }
 }

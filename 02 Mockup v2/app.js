@@ -14,6 +14,10 @@ const TOP_ZONE_THRESHOLD = 0.2;
 const POSITIVE_SLOPE_THRESHOLD = 0.04;
 const BODY_ASSET_DISPLAY_THRESHOLD = 0.1;
 const BODY_ASSET_DISPLAY_GAMMA = 1.1;
+const BODY_ASSET_AT_RISK_MIN_DAYS = 4;
+const BODY_ASSET_AT_RISK_MAX_DAYS = 7;
+const BODY_ASSET_AT_RISK_THRESHOLD = 0.12;
+const BODY_ASSET_FADE_MEMORY_THRESHOLD = 0.03;
 const DEFAULT_HRX_FORMAT = "HRX Core";
 const HIDDEN_RECOMMENDATION_FORMATS = new Set(["HRX"]);
 const PLAN_ITEM_FORMAT_OPTIONS = {
@@ -797,6 +801,10 @@ const adherenceSplitLabel = document.getElementById("adherenceSplitLabel");
 const adherenceProgressDots = document.getElementById("adherenceProgressDots");
 const adherenceProgressLabel = document.getElementById("adherenceProgressLabel");
 const primaryAction = document.getElementById("primaryAction");
+const wearableNudgeButton = document.getElementById("wearableNudgeButton");
+const wearableNudgeText = document.getElementById("wearableNudgeText");
+const pulseBcaTrayButton = document.getElementById("pulseBcaTrayButton");
+const askCuroButton = document.getElementById("askCuroButton");
 const logWorkoutTitle = document.getElementById("logWorkoutTitle");
 const logWorkoutStepCount = document.getElementById("logWorkoutStepCount");
 const logWorkoutSourceSection = document.getElementById("logWorkoutSourceSection");
@@ -2233,6 +2241,79 @@ function getBodyAssetStates(pulseStates) {
   );
 }
 
+function getBodyAssetVisualStates(pulseStates) {
+  return Object.fromEntries(
+    Object.entries(BODY_ASSET_LIBRARY).map(([asset, zoneWeights]) => {
+      const score = getWeightedAssetScore(zoneWeights, pulseStates);
+      const weightedZones = Object.entries(zoneWeights)
+        .map(([zone, weight]) => ({
+          zone,
+          weight,
+          activation: pulseStates[zone]?.activation || 0,
+          daysSinceLast: pulseStates[zone]?.daysSinceLast,
+        }))
+        .filter(({ activation, daysSinceLast }) => activation > 0 && daysSinceLast !== null);
+
+      const hasFreshSignal = weightedZones.some(
+        ({ activation, weight, daysSinceLast }) =>
+          activation * weight >= BODY_ASSET_DISPLAY_THRESHOLD &&
+          daysSinceLast < BODY_ASSET_AT_RISK_MIN_DAYS,
+      );
+      const hasAtRiskSignal = weightedZones.some(
+        ({ activation, weight, daysSinceLast }) =>
+          activation * weight >= BODY_ASSET_AT_RISK_THRESHOLD &&
+          daysSinceLast >= BODY_ASSET_AT_RISK_MIN_DAYS &&
+          daysSinceLast <= BODY_ASSET_AT_RISK_MAX_DAYS,
+      );
+      const hasFadingMemorySignal = weightedZones.some(
+        ({ activation, weight, daysSinceLast }) =>
+          activation * weight >= BODY_ASSET_FADE_MEMORY_THRESHOLD &&
+          daysSinceLast >= BODY_ASSET_AT_RISK_MIN_DAYS &&
+          daysSinceLast <= BODY_ASSET_AT_RISK_MAX_DAYS,
+      );
+      const strongestWeightedSignal = weightedZones.length
+        ? Math.max(...weightedZones.map(({ activation, weight }) => activation * weight))
+        : 0;
+      const strongestFadingSignal = weightedZones.length
+        ? Math.max(
+            0,
+            ...weightedZones
+              .filter(
+                ({ daysSinceLast }) =>
+                  daysSinceLast >= BODY_ASSET_AT_RISK_MIN_DAYS &&
+                  daysSinceLast <= BODY_ASSET_AT_RISK_MAX_DAYS,
+              )
+              .map(({ activation, weight }) => activation * weight),
+          )
+        : 0;
+      const atRiskVisualScore = hasFadingMemorySignal
+        ? clamp(
+            (strongestFadingSignal - BODY_ASSET_FADE_MEMORY_THRESHOLD) / (1 - BODY_ASSET_FADE_MEMORY_THRESHOLD),
+            0.26,
+            0.56,
+          )
+        : 0;
+
+      const state =
+        hasFreshSignal ? "active" : hasFadingMemorySignal || hasAtRiskSignal ? "at-risk" : score <= 0 ? "inactive" : "inactive";
+
+      return [asset, { score, state, visualScore: state === "at-risk" ? Math.max(score, atRiskVisualScore) : score }];
+    }),
+  );
+}
+
+function getBodyAssetRiskSummary(assetStates) {
+  const states = Object.values(assetStates);
+  const atRiskCount = states.filter((asset) => asset.state === "at-risk").length;
+  const activeCount = states.filter((asset) => asset.state === "active").length;
+
+  return {
+    atRiskCount,
+    activeCount,
+    hasAtRiskAssets: atRiskCount > 0,
+  };
+}
+
 function getDaysSinceLastWorkout(workouts, referenceDate) {
   const latestWorkout = workouts
     .filter((workout) => workout.dateObject <= referenceDate)
@@ -2268,6 +2349,26 @@ function getPeakZoneActivations(snapshots) {
 }
 
 function getCoolingRiskState(visibleDrop, topZoneDeclineRatio, daysSinceLastWorkout) {
+  if (daysSinceLastWorkout !== null && daysSinceLastWorkout <= 2) {
+    if (visibleDrop >= 3 || topZoneDeclineRatio >= 0.35) {
+      return "early_cooling";
+    }
+
+    return "stable";
+  }
+
+  if (daysSinceLastWorkout !== null && daysSinceLastWorkout <= 5) {
+    if (visibleDrop >= 3 || topZoneDeclineRatio >= 0.3) {
+      return "cooling";
+    }
+
+    if (visibleDrop >= 1 || topZoneDeclineRatio >= 0.1) {
+      return "early_cooling";
+    }
+
+    return "stable";
+  }
+
   if (
     visibleDrop >= 3 ||
     topZoneDeclineRatio >= 0.3 ||
@@ -2483,6 +2584,8 @@ function getRecoveryEffortState(coolingRisk, visibleZoneCount, daysSinceLastWork
 function getPulseSummary(referenceDate = state.currentDate) {
   const workouts = getScenarioWorkouts();
   const zones = getPulseStates(referenceDate, workouts);
+  const assetVisualStates = getBodyAssetVisualStates(zones);
+  const assetRiskSummary = getBodyAssetRiskSummary(assetVisualStates);
   const visibleZoneCount = getVisibleZoneCount(zones);
   const topZones = getTopZoneKeys(zones);
   const topZoneAverage = getTopZoneAverage(zones);
@@ -2544,6 +2647,9 @@ function getPulseSummary(referenceDate = state.currentDate) {
 
   return {
     zones,
+    assetVisualStates,
+    atRiskAssetCount: assetRiskSummary.atRiskCount,
+    hasAtRiskAssets: assetRiskSummary.hasAtRiskAssets,
     topZones,
     topZoneAverage,
     visibleZoneCount,
@@ -2582,6 +2688,11 @@ function getWeekTransitionNarrative(currentWeek, previousWeek, recommendedFormat
     return null;
   }
 
+  const daysSinceLastWorkout = getDaysSinceLastWorkout(getScenarioWorkouts(), referenceDate);
+  if (daysSinceLastWorkout === null || daysSinceLastWorkout > 8) {
+    return null;
+  }
+
   const sessionLabel = formatSessionCount(previousWeek.sessions);
   const carryForward =
     previousWeek.status === "above"
@@ -2617,7 +2728,12 @@ function getPulseHeaderSubtext(
     return "Start with one class and Pulse will begin tracking your last 7 days.";
   }
 
-  if (currentWeek.sessions === 0 && previousWeek.sessions > 0) {
+  if (
+    currentWeek.sessions === 0 &&
+    previousWeek.sessions > 0 &&
+    summary.daysSinceLastWorkout !== null &&
+    summary.daysSinceLastWorkout <= 8
+  ) {
     return "Your earlier 7-day window went well. A fresh session now keeps the momentum moving.";
   }
 
@@ -3324,15 +3440,15 @@ function getPulseNarrative(summary, adherenceWeek, goal, plannedSessions, totalW
   if (summary.momentumState === "cooling") {
     const isEarlyCooling = summary.coolingRisk === "early_cooling";
     return {
-      headline: "Your last 7 days are slipping. Catch it now.",
-      visualState: "risk",
+      headline: isEarlyCooling ? "Your last 7 days are cooling. Stay ahead of it." : "Your last 7 days are cooling. Catch it now.",
+      visualState: isEarlyCooling ? "progress" : "risk",
       pill: isEarlyCooling ? "Cooling early" : "Cooling",
       adherenceTitle: `${focusAreaLabel} is starting to cool`,
-      adherenceText: `The map is still active, but ${focusAreaInline} is slipping from its recent peak. One ${recommendedFormat} class now gets the last-7-days view back on track while the save is still easy. ${sessionProgress}`,
+      adherenceText: `The map is still active, but ${focusAreaInline} is cooling from its recent peak. One ${recommendedFormat} class now gets the last-7-days view back on track while the save is still easy. ${sessionProgress}`,
       actionLabel: `Restore with ${recommendedFormat}`,
       insightTitle: isEarlyCooling ? "What is starting to cool" : "What is cooling now",
       insightText: isEarlyCooling
-        ? `${focusAreaLabel} is slipping before the week is complete. ${sessionProgress} One ${recommendedFormat} class will widen the map again while the save is easy.`
+        ? `${focusAreaLabel} is cooling before the week is complete. ${sessionProgress} One ${recommendedFormat} class will widen the map again while the save is easy.`
         : `${focusAreaLabel} is fading around ${focusAreaInline}, and the last-7-days view is still short of target. ${recommendedFormat} is the fastest way to bring it back into shape.`,
     };
   }
@@ -3389,6 +3505,8 @@ function getGoalAdherenceCopy(summary, adherenceWeek, goal, plannedSessions, pro
   const remainingSessions = Math.max(0, plannedSessions - adherenceWeek.sessions);
   const recommendedSession =
     recommendedFormat === "Strength & Conditioning" ? "Strength session" : recommendedFormat;
+  const daysSinceLastWorkout = summary.daysSinceLastWorkout;
+  const isRestartState = daysSinceLastWorkout !== null && daysSinceLastWorkout >= 8 && !summary.hasAtRiskAssets;
   const goalContext =
     state.profile.goal === "weight_loss"
       ? "Fat-loss rhythm"
@@ -3398,10 +3516,20 @@ function getGoalAdherenceCopy(summary, adherenceWeek, goal, plannedSessions, pro
   const sessionsLeftLabel =
     remainingSessions === 1 ? "1 session left" : `${remainingSessions} sessions left`;
 
-  if (summary.coolingRisk === "dropoff_risk") {
+  if (isRestartState) {
     return {
       title: "Restart needed",
       text: `${goalContext} | Log 1 class`,
+      split: program.split,
+      progress: `${adherenceWeek.sessions}/${plannedSessions} done`,
+      actionLabel: `Log ${recommendedSession}`,
+    };
+  }
+
+  if (summary.hasAtRiskAssets) {
+    return {
+      title: daysSinceLastWorkout !== null && daysSinceLastWorkout <= 5 ? "Momentum fading" : "Act now",
+      text: `${goalContext} | ${recommendedSession} now`,
       split: program.split,
       progress: `${adherenceWeek.sessions}/${plannedSessions} done`,
       actionLabel: `Log ${recommendedSession}`,
@@ -3459,6 +3587,7 @@ function getGoalAdherenceCopy(summary, adherenceWeek, goal, plannedSessions, pro
 
 function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort, pulseSummary) {
   const lastWorkoutLabel = formatRelativeDayLabel(pulseSummary.daysSinceLastWorkout);
+  const hasFreshWorkout = pulseSummary.daysSinceLastWorkout !== null && pulseSummary.daysSinceLastWorkout <= 2;
 
   if (!latestWorkout) {
     if (pulseSummary.daysSinceLastWorkout === null) {
@@ -3470,11 +3599,14 @@ function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort, pulseSumma
 
   const latestWorkoutLabel = `${formatWorkoutName(latestWorkout.format)} ${formatRelativeDayLabel(diffDays(state.currentDate, latestWorkout.dateObject))}`;
 
-  if (pulseSummary.coolingRisk === "dropoff_risk") {
+  if (!hasFreshWorkout && pulseSummary.coolingRisk === "dropoff_risk") {
+    if (pulseSummary.hasAtRiskAssets) {
+      return `${latestWorkoutLabel}. Parts of your recent progress are fading in the last 7 days.`;
+    }
     return `${latestWorkoutLabel}. Momentum has dropped off in the last 7 days.`;
   }
 
-  if (pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "early_cooling") {
+  if (!hasFreshWorkout && (pulseSummary.coolingRisk === "cooling" || pulseSummary.coolingRisk === "early_cooling")) {
     return `${latestWorkoutLabel}. Your last-7-days view is cooling.`;
   }
 
@@ -3491,6 +3623,144 @@ function getWeeklyLoadNarrative(weekly, latestWorkout, workoutEffort, pulseSumma
   }
 
   return `${latestWorkoutLabel}. The last 7 days are moving, but still below target.`;
+}
+
+function getHeaderWidget(summary, weekly, plannedSessions, totalWorkouts = 0) {
+  const recommendedFormat = summary.recommendedFormat || DEFAULT_HRX_FORMAT;
+  const daysSinceLastWorkout = summary.daysSinceLastWorkout;
+  const remainingSessions = Math.max(0, plannedSessions - weekly.sessions);
+  const hasOlderHistoryOutsideWindow = totalWorkouts > weekly.sessions;
+  const hasAtRiskAssets = summary.hasAtRiskAssets;
+  const isOnTrack = weekly.status === "in_range";
+  const isAboveTarget = weekly.status === "above";
+  const oneMoreClassLine =
+    remainingSessions <= 1
+      ? `One more ${recommendedFormat} soon keeps this moving.`
+      : `${remainingSessions} more sessions soon rebuild the pattern.`;
+
+  if (totalWorkouts === 0) {
+    return {
+      state: "progress",
+      pill: "Getting started",
+      headline: "Start your first week strong.",
+      subtext: "Start with one class to get going.",
+    };
+  }
+
+  if (hasAtRiskAssets && daysSinceLastWorkout !== null && daysSinceLastWorkout <= 2 && totalWorkouts > 1) {
+    return {
+      state: "progress",
+      pill: "Rebalancing",
+      headline: "You're getting back into rhythm. Keep going.",
+      subtext: `Another ${recommendedFormat} soon will help you settle back in.`,
+    };
+  }
+
+  if (daysSinceLastWorkout === 0 && hasOlderHistoryOutsideWindow && weekly.sessions === 1) {
+    return {
+      state: "positive",
+      pill: "Recovering",
+      headline: "You're back. Keep it going.",
+      subtext: "Repeat it once more soon to make the comeback stick.",
+    };
+  }
+
+  if (hasAtRiskAssets && daysSinceLastWorkout !== null && daysSinceLastWorkout <= 5) {
+    return {
+      state: "progress",
+      pill: "Cooling early",
+      headline: "You're losing momentum. Stay on it.",
+      subtext: oneMoreClassLine,
+    };
+  }
+
+  if (hasAtRiskAssets && daysSinceLastWorkout !== null && daysSinceLastWorkout <= 7) {
+    return {
+      state: "risk",
+      pill: "Cooling",
+      headline: "Your momentum is fading. Act now.",
+      subtext: `Log ${recommendedFormat} soon before this turns into a restart.`,
+    };
+  }
+
+  if (daysSinceLastWorkout === 0 && isAboveTarget) {
+    return {
+      state: "positive",
+      pill: "Above target",
+      headline: "You're doing well! Keep it up!",
+      subtext: "You've done enough for now. Focus on recovery.",
+    };
+  }
+
+  if (daysSinceLastWorkout === 0 && (isOnTrack || weekly.sessions >= plannedSessions)) {
+    return {
+      state: "positive",
+      pill: "On track",
+      headline: "You're doing well! Keep it up!",
+      subtext: "Keep the rhythm going without forcing extra.",
+    };
+  }
+
+  if (daysSinceLastWorkout === 0) {
+    return {
+      state: totalWorkouts === 1 ? "progress" : "positive",
+      pill: "Building",
+      headline: "You're making progress. Keep going.",
+      subtext: `Another ${recommendedFormat} soon will build on this.`,
+    };
+  }
+
+  if (daysSinceLastWorkout !== null && daysSinceLastWorkout <= 3) {
+    if (isAboveTarget) {
+      return {
+        state: "positive",
+        pill: "Recovery focus",
+        headline: "You're doing well! Recover well.",
+        subtext: "You're above target. Focus on recovery now.",
+      };
+    }
+
+    if (isOnTrack) {
+      return {
+        state: "positive",
+        pill: "On track",
+        headline: "You're doing well! Keep it up!",
+        subtext: "One more smart session soon keeps this going.",
+      };
+    }
+
+    return {
+      state: "progress",
+      pill: "Worth protecting",
+      headline: "You're building momentum. Keep it up!",
+      subtext: oneMoreClassLine,
+    };
+  }
+
+  if (daysSinceLastWorkout !== null && daysSinceLastWorkout <= 5) {
+    return {
+      state: "progress",
+      pill: "Cooling early",
+      headline: "You're losing momentum. Stay on it.",
+      subtext: oneMoreClassLine,
+    };
+  }
+
+  if (daysSinceLastWorkout !== null && daysSinceLastWorkout <= 7) {
+    return {
+      state: "risk",
+      pill: "Cooling",
+      headline: "Your momentum is fading. Act now.",
+      subtext: `Log ${recommendedFormat} soon before this turns into a restart.`,
+    };
+  }
+
+  return {
+    state: "risk",
+    pill: "Restart now",
+    headline: "It's time to get going again. Start today.",
+    subtext: `One meaningful ${recommendedFormat} session gets you moving again.`,
+  };
 }
 
 function renderSupportPanel() {
@@ -3521,13 +3791,18 @@ function renderAdherenceProgressDots(completed, planned) {
 }
 
 function renderPulseMap(pulseStates) {
-  const assetScores = getBodyAssetStates(pulseStates);
+  const assetStates = getBodyAssetVisualStates(pulseStates);
+  const fadeSyncDelay = `${-((Date.now() % 2200) / 1000)}s`;
 
   bodyReferenceNodes.forEach((node) => {
-    const score = assetScores[node.dataset.assetZone] || 0;
+    const assetState = assetStates[node.dataset.assetZone] || { score: 0, state: "inactive" };
+    const score = assetState.visualScore ?? assetState.score ?? 0;
     node.style.setProperty("--zone-score", score.toFixed(3));
     const visibleOpacity = score <= 0 ? 0 : clamp(Math.pow(score, 1.08) * 0.92, 0, 0.92);
-    node.style.opacity = `${visibleOpacity}`;
+    node.style.setProperty("--zone-opacity", visibleOpacity.toFixed(3));
+    node.style.setProperty("--fade-sync-delay", fadeSyncDelay);
+    node.classList.toggle("is-at-risk", assetState.state === "at-risk");
+    node.classList.toggle("is-active", assetState.state === "active");
   });
 }
 
@@ -3680,20 +3955,12 @@ function renderPulse() {
   };
   const latestWorkout = getLatestCompletedWorkout(workouts);
   const workoutEffort = getWorkoutEffortSummary(latestWorkout, weekly);
-  const defaultNarrative = getPulseNarrative(
+  const headerWidget = getHeaderWidget(
     pulseActionSummary,
     weekly,
-    goal,
     Number(state.profile.frequency),
     workouts.length,
   );
-  const weekTransitionNarrative = getWeekTransitionNarrative(
-    weekly,
-    previousRollingWeek,
-    pulseActionSummary.recommendedFormat || DEFAULT_HRX_FORMAT,
-    state.currentDate,
-  );
-  const narrative = weekTransitionNarrative || defaultNarrative;
   const adherence = getGoalAdherenceCopy(
     pulseActionSummary,
     weekly,
@@ -3708,25 +3975,12 @@ function renderPulse() {
     Math.max(0, weekly.total - (latestWorkoutInWindow ? latestWorkoutInWindow.sessionLoad : 0)),
   );
   const plannedSessions = Number(state.profile.frequency);
-  const headerDiagnostics = getPulseHeaderDiagnostics(
-    pulseActionSummary,
-    weekly,
-    plannedSessions,
-    workouts.length,
-  );
-  const fallbackHeaderState = headerDiagnostics.headerState;
-  const displayState = getResolvedHeaderState(narrative.visualState, fallbackHeaderState);
+  const displayState = headerWidget.state;
 
   renderPulseWeekDots(sixWeekJourney);
-  pulseHeadline.textContent = narrative.headline;
-  pulseHeaderSubtext.textContent = getPulseHeaderSubtext(
-    pulseActionSummary,
-    weekly,
-    previousRollingWeek,
-    workouts.length,
-    state.currentDate,
-  );
-  pulseMomentumPill.textContent = narrative.pill;
+  pulseHeadline.textContent = headerWidget.headline;
+  pulseHeaderSubtext.textContent = headerWidget.subtext;
+  pulseMomentumPill.textContent = headerWidget.pill;
   pulseCuroVisual.src = CURO_VISUAL_LIBRARY[getCuroVisualState(displayState)];
   pulseCardTop.classList.remove("is-progress", "is-positive", "is-risk");
   pulseCardTop.classList.add(
@@ -3881,8 +4135,25 @@ centerConsultNudge.addEventListener("click", () => {
   centerConsultNudge.querySelector("small").textContent = "Coach consult suggested near your selected center.";
 });
 
-bcaNudge.addEventListener("click", () => {
-  bcaNudge.querySelector("small").textContent = "BCA check suggested near your selected center.";
+if (bcaNudge) {
+  bcaNudge.addEventListener("click", () => {
+    bcaNudge.querySelector("small").textContent = "BCA check suggested near your selected center.";
+  });
+}
+
+wearableNudgeButton.addEventListener("click", () => {
+  wearableNudgeText.textContent = "Wearable sync suggested. Heart rate and recovery data can sharpen Pulse accuracy.";
+});
+
+pulseBcaTrayButton.addEventListener("click", () => {
+  wearableNudgeText.textContent = "BCA report suggested. Body-composition data can sharpen Pulse accuracy.";
+});
+
+askCuroButton.addEventListener("click", () => {
+  pulseHeadline.textContent = "Ask Curo anything about your progress.";
+  pulseHeaderSubtext.textContent = "Use Curo for recovery questions, workout choices, and body-map interpretation.";
+  pulseMomentumPill.textContent = "Curo ready";
+  pulseMomentumPill.classList.remove("is-cooling", "is-risk", "is-recovering", "is-light", "is-moderate", "is-high", "is-very-high");
 });
 
 window.addEventListener("hashchange", () => {

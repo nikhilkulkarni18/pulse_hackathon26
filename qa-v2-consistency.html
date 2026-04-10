@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulse v2 Consistency QA</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        background: #09111d;
+        color: #edf6ff;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: #c7d8e8;
+      }
+
+      .results {
+        display: grid;
+        gap: 12px;
+      }
+
+      .result {
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(173, 223, 255, 0.16);
+        background: rgba(12, 28, 46, 0.84);
+      }
+
+      .result.has-flag {
+        border-color: rgba(255, 183, 77, 0.8);
+        box-shadow: 0 0 0 1px rgba(255, 183, 77, 0.22);
+      }
+
+      .result h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      .flag {
+        margin: 8px 0 0;
+        color: #ffca7a;
+        font-size: 13px;
+      }
+
+      .row {
+        margin-top: 4px;
+        font-size: 14px;
+        color: #c7d8e8;
+      }
+
+      .row strong {
+        color: #74e8ff;
+      }
+
+      iframe {
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        position: absolute;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Pulse v2 Consistency QA</h1>
+    <p>Checks header, load, adherence, Curo, body-map decay, and CTA tone across a broader scenario grid.</p>
+    <div id="results" class="results"></div>
+
+    <script>
+      const STORAGE_KEY = "cult-pulse-demo-user-progress-v2";
+      const APP_URL = "/02%20Mockup%20v2/index.html#pulse";
+
+      const baseProfile = {
+        name: "Nikhil",
+        goal: "weight_loss",
+        frequency: "4",
+        startingPoint: "regular",
+        trainingMode: "gx_only",
+        splitPreference: "full_body",
+      };
+
+      const iso = (day) => `${day}T12:00:00.000Z`;
+      const workout = (format, day) => ({ format, dateTime: iso(day) });
+
+      const cycleFormats = ["HRX Quads", "Burn", "HRX Core", "Yoga"];
+
+      function buildHistory(days, startIndex = 0) {
+        return days.map((day, index) => workout(cycleFormats[(startIndex + index) % cycleFormats.length], day));
+      }
+
+      const olderHistory = buildHistory(
+        [
+          "2026-03-08",
+          "2026-03-10",
+          "2026-03-12",
+          "2026-03-14",
+          "2026-03-16",
+          "2026-03-18",
+          "2026-03-20",
+          "2026-03-22",
+          "2026-03-24",
+          "2026-03-26",
+        ],
+        0,
+      );
+
+      const activeCycle = buildHistory(["2026-04-05", "2026-04-07", "2026-04-08", "2026-04-10"], 0);
+
+      const scenarios = [
+        {
+          id: "new-user",
+          label: "New user, no workouts",
+          expectedTone: "progress",
+          referenceDay: "2026-04-10",
+          workouts: [],
+        },
+        {
+          id: "first-workout",
+          label: "1 workout today",
+          expectedTone: "progress",
+          referenceDay: "2026-04-10",
+          workouts: [workout("HRX Quads", "2026-04-10")],
+        },
+        {
+          id: "three-recent-tight",
+          label: "3 recent workouts, latest 2 days ago",
+          expectedTone: "progress",
+          referenceDay: "2026-04-10",
+          workouts: buildHistory(["2026-04-04", "2026-04-06", "2026-04-08"], 0),
+        },
+        {
+          id: "three-recent-stale",
+          label: "3 recent workouts, latest 4 days ago",
+          expectedTone: "caution",
+          referenceDay: "2026-04-10",
+          workouts: buildHistory(["2026-04-04", "2026-04-05", "2026-04-06"], 0),
+        },
+        {
+          id: "thirteen-total-latest2",
+          label: "13 total workouts, 3 recent, latest 2 days ago",
+          expectedTone: "progress",
+          referenceDay: "2026-04-10",
+          workouts: [...olderHistory, ...buildHistory(["2026-04-04", "2026-04-06", "2026-04-08"], 2)],
+        },
+        {
+          id: "thirteen-total-latest4",
+          label: "13 total workouts, 3 recent, latest 4 days ago",
+          expectedTone: "caution",
+          referenceDay: "2026-04-10",
+          workouts: [...olderHistory, ...buildHistory(["2026-04-04", "2026-04-05", "2026-04-06"], 2)],
+        },
+        {
+          id: "on-track",
+          label: "4 workouts, active and on track",
+          expectedTone: "positive",
+          referenceDay: "2026-04-10",
+          workouts: activeCycle,
+        },
+        {
+          id: "active-plus-rest",
+          label: "4 workouts, last one 2 days ago",
+          expectedTone: "positive",
+          referenceDay: "2026-04-12",
+          workouts: activeCycle,
+        },
+        {
+          id: "early-cooling",
+          label: "4 workouts, 4 days inactive",
+          expectedTone: "caution",
+          referenceDay: "2026-04-14",
+          workouts: activeCycle,
+        },
+        {
+          id: "cooling",
+          label: "4 workouts, 6 days inactive",
+          expectedTone: "caution",
+          referenceDay: "2026-04-16",
+          workouts: activeCycle,
+        },
+        {
+          id: "dropoff",
+          label: "4 workouts, 8 days inactive",
+          expectedTone: "risk",
+          referenceDay: "2026-04-18",
+          workouts: activeCycle,
+        },
+        {
+          id: "hard-dropoff",
+          label: "4 workouts, 14 days inactive",
+          expectedTone: "risk",
+          referenceDay: "2026-04-24",
+          workouts: activeCycle,
+        },
+        {
+          id: "return",
+          label: "Return after long gap",
+          expectedTone: "positive",
+          referenceDay: "2026-04-22",
+          workouts: [...activeCycle, workout("HRX Quads", "2026-04-22")],
+        },
+      ];
+
+      const toneScore = {
+        positive: 0,
+        progress: 1,
+        caution: 2,
+        risk: 3,
+      };
+
+      function buildProgress(scenario) {
+        return {
+          qa_user: {
+            profile: { ...baseProfile },
+            planCreated: true,
+            goalStep: 0,
+            workouts: scenario.workouts,
+            referenceDate: iso(scenario.referenceDay),
+            startDate: iso("2026-03-24"),
+          },
+        };
+      }
+
+      function waitFor(check, timeout = 5000) {
+        return new Promise((resolve, reject) => {
+          const startedAt = Date.now();
+
+          function poll() {
+            try {
+              const value = check();
+              if (value) {
+                resolve(value);
+                return;
+              }
+            } catch (error) {
+              reject(error);
+              return;
+            }
+
+            if (Date.now() - startedAt > timeout) {
+              reject(new Error("Timed out waiting for scenario render."));
+              return;
+            }
+
+            window.setTimeout(poll, 60);
+          }
+
+          poll();
+        });
+      }
+
+      function classifyHeadline(text = "") {
+        const value = text.toLowerCase();
+        if (value.includes("restart") || value.includes("faded")) {
+          return "risk";
+        }
+        if (value.includes("fading") || value.includes("cooling") || value.includes("attention")) {
+          return "caution";
+        }
+        if (value.includes("good place") || value.includes("on track") || value.includes("back on track")) {
+          return "positive";
+        }
+        return "progress";
+      }
+
+      function classifyLoad(badge = "", narrative = "") {
+        const text = `${badge} ${narrative}`.toLowerCase();
+        if (text.includes("restart") || text.includes("dropped off")) {
+          return "risk";
+        }
+        if (text.includes("fading") || text.includes("cooling")) {
+          return "caution";
+        }
+        if (text.includes("above target") || text.includes("in target")) {
+          return "positive";
+        }
+        return "progress";
+      }
+
+      function classifyAdherence(title = "", text = "") {
+        const value = `${title} ${text}`.toLowerCase();
+        if (value.includes("restart")) {
+          return "risk";
+        }
+        if (value.includes("act now") || value.includes("fading") || value.includes("cooling")) {
+          return "caution";
+        }
+        if (value.includes("above target") || value.includes("on track")) {
+          return "positive";
+        }
+        return "progress";
+      }
+
+      function classifyCuro(src = "") {
+        const value = src.toLowerCase();
+        if (value.includes("dont_do_this")) {
+          return "risk";
+        }
+        if (value.includes("streak check")) {
+          return "positive";
+        }
+        return "progress";
+      }
+
+      function classifyBody(activeCount, atRiskCount, headlineTone) {
+        if (atRiskCount > 0) {
+          return "caution";
+        }
+        if (activeCount > 0) {
+          return headlineTone === "risk" ? "caution" : "progress";
+        }
+        return headlineTone === "risk" ? "risk" : "progress";
+      }
+
+      function getFlags(result) {
+        const flags = [];
+        const expected = toneScore[result.expectedTone];
+        const tones = [
+          ["headline", result.headlineTone],
+          ["load", result.loadTone],
+          ["adherence", result.adherenceTone],
+          ["curo", result.curoTone],
+          ["body", result.bodyTone],
+        ];
+
+        tones.forEach(([layer, tone]) => {
+          if (Math.abs(toneScore[tone] - expected) > 1) {
+            flags.push(`${layer} tone is ${tone} but expected closer to ${result.expectedTone}`);
+          }
+        });
+
+        if (result.expectedTone === "risk") {
+          tones.forEach(([layer, tone]) => {
+            if (tone === "positive") {
+              flags.push(`${layer} is still positive during a risk scenario`);
+            }
+          });
+        }
+
+        if ((result.atRiskCount > 0 || result.bodyTone === "caution") && result.headlineTone === "positive") {
+          flags.push("header is positive while body-map is warning");
+        }
+
+        if (result.headlineTone === "risk" && result.loadTone === "positive") {
+          flags.push("header says risk while load still reads fully positive");
+        }
+
+        return flags;
+      }
+
+      async function runScenario(scenario) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(buildProgress(scenario)));
+
+        const frame = document.createElement("iframe");
+        frame.src = `${APP_URL}&scenario=${scenario.id}&ts=${Date.now()}`;
+        document.body.appendChild(frame);
+
+        await new Promise((resolve) => {
+          frame.addEventListener("load", resolve, { once: true });
+        });
+
+        const frameDocument = frame.contentDocument;
+        const userButton = await waitFor(() => frameDocument.querySelector("#userOptions .control-option"));
+        userButton.click();
+
+        await waitFor(() => {
+          const headline = frameDocument.getElementById("pulseHeadline")?.textContent?.trim();
+          const member = frameDocument.getElementById("memberName")?.textContent?.trim();
+          return headline && member === "Nikhil";
+        });
+
+        await new Promise((resolve) => window.setTimeout(resolve, 160));
+
+        const headline = frameDocument.getElementById("pulseHeadline")?.textContent?.trim() || "";
+        const subtext = frameDocument.getElementById("pulseHeaderSubtext")?.textContent?.trim() || "";
+        const pill = frameDocument.getElementById("pulseMomentumPill")?.textContent?.trim() || "";
+        const cardClass = frameDocument.getElementById("pulseCardTop")?.className || "";
+        const curoSrc = frameDocument.getElementById("pulseCuroVisual")?.getAttribute("src") || "";
+        const load = frameDocument.getElementById("pulseLoadValue")?.textContent?.trim() || "";
+        const loadBadge = frameDocument.getElementById("loadStatusBadge")?.textContent?.trim() || "";
+        const loadNarrative = frameDocument.getElementById("weeklyLoadNarrative")?.textContent?.trim() || "";
+        const adherenceTitle = frameDocument.getElementById("goalAdherenceTitle")?.textContent?.trim() || "";
+        const adherence = frameDocument.getElementById("goalAdherenceText")?.textContent?.trim() || "";
+        const action = frameDocument.getElementById("primaryAction")?.textContent?.trim() || "";
+        const atRiskCount = frameDocument.querySelectorAll(".body-reference-overlay.is-at-risk").length;
+        const activeCount = frameDocument.querySelectorAll(".body-reference-overlay.is-active").length;
+
+        frame.remove();
+
+        const headlineTone = classifyHeadline(headline);
+        const loadTone = classifyLoad(loadBadge, loadNarrative);
+        const adherenceTone = classifyAdherence(adherenceTitle, adherence);
+        const curoTone = classifyCuro(curoSrc);
+        const bodyTone = classifyBody(activeCount, atRiskCount, headlineTone);
+
+        const result = {
+          scenario: scenario.label,
+          expectedTone: scenario.expectedTone,
+          headline,
+          subtext,
+          pill,
+          cardClass,
+          curoSrc,
+          load,
+          loadBadge,
+          loadNarrative,
+          adherenceTitle,
+          adherence,
+          action,
+          atRiskCount,
+          activeCount,
+          headlineTone,
+          loadTone,
+          adherenceTone,
+          curoTone,
+          bodyTone,
+        };
+
+        result.flags = getFlags(result);
+        return result;
+      }
+
+      function renderResult(result) {
+        const card = document.createElement("section");
+        card.className = `result${result.flags.length ? " has-flag" : ""}`;
+        card.innerHTML = `
+          <h2>${result.scenario}</h2>
+          <div class="row"><strong>Expected tone:</strong> ${result.expectedTone}</div>
+          <div class="row"><strong>Tones:</strong> header=${result.headlineTone}, load=${result.loadTone}, adherence=${result.adherenceTone}, curo=${result.curoTone}, body=${result.bodyTone}</div>
+          <div class="row"><strong>Headline:</strong> ${result.headline}</div>
+          <div class="row"><strong>Subtext:</strong> ${result.subtext}</div>
+          <div class="row"><strong>Pill:</strong> ${result.pill}</div>
+          <div class="row"><strong>Card:</strong> ${result.cardClass}</div>
+          <div class="row"><strong>Curo:</strong> ${result.curoSrc}</div>
+          <div class="row"><strong>Load:</strong> ${result.load}</div>
+          <div class="row"><strong>Load narrative:</strong> ${result.loadNarrative}</div>
+          <div class="row"><strong>Adherence title:</strong> ${result.adherenceTitle}</div>
+          <div class="row"><strong>Adherence:</strong> ${result.adherence}</div>
+          <div class="row"><strong>Action:</strong> ${result.action}</div>
+          <div class="row"><strong>Body map:</strong> ${result.activeCount} active overlays, ${result.atRiskCount} at-risk overlays</div>
+          ${result.flags.map((flag) => `<div class="flag">Flag: ${flag}</div>`).join("")}
+        `;
+        document.getElementById("results").appendChild(card);
+      }
+
+      (async () => {
+        for (const scenario of scenarios) {
+          try {
+            const result = await runScenario(scenario);
+            renderResult(result);
+          } catch (error) {
+            renderResult({
+              scenario: scenario.label,
+              expectedTone: scenario.expectedTone,
+              headline: `Error: ${error.message}`,
+              subtext: "",
+              pill: "",
+              cardClass: "",
+              curoSrc: "",
+              load: "",
+              loadBadge: "",
+              loadNarrative: "",
+              adherenceTitle: "",
+              adherence: "",
+              action: "",
+              atRiskCount: 0,
+              activeCount: 0,
+              headlineTone: "risk",
+              loadTone: "risk",
+              adherenceTone: "risk",
+              curoTone: "risk",
+              bodyTone: "risk",
+              flags: ["scenario failed to render"],
+            });
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
