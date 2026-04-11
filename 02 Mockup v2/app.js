@@ -3633,6 +3633,10 @@ function getHeaderWidget(summary, weekly, plannedSessions, totalWorkouts = 0) {
   const hasAtRiskAssets = summary.hasAtRiskAssets;
   const isOnTrack = weekly.status === "in_range";
   const isAboveTarget = weekly.status === "above";
+  const nextWorkoutPrompt =
+    daysSinceLastWorkout === 0
+      ? "Plan your next workout for tomorrow."
+      : "Plan your next workout soon.";
   const oneMoreClassLine =
     remainingSessions <= 1
       ? `One more ${recommendedFormat} soon keeps this moving.`
@@ -3688,7 +3692,7 @@ function getHeaderWidget(summary, weekly, plannedSessions, totalWorkouts = 0) {
       state: "positive",
       pill: "Above target",
       headline: "You're doing well! Keep it up!",
-      subtext: "You've done enough for now. Focus on recovery.",
+      subtext: `Recover today. ${nextWorkoutPrompt}`,
     };
   }
 
@@ -3697,7 +3701,7 @@ function getHeaderWidget(summary, weekly, plannedSessions, totalWorkouts = 0) {
       state: "positive",
       pill: "On track",
       headline: "You're doing well! Keep it up!",
-      subtext: "Keep the rhythm going without forcing extra.",
+      subtext: `Recover today. ${nextWorkoutPrompt}`,
     };
   }
 
@@ -3716,7 +3720,7 @@ function getHeaderWidget(summary, weekly, plannedSessions, totalWorkouts = 0) {
         state: "positive",
         pill: "Recovery focus",
         headline: "You're doing well! Recover well.",
-        subtext: "You're above target. Focus on recovery now.",
+        subtext: "Recovery is helping. Plan your next workout soon.",
       };
     }
 
@@ -3725,7 +3729,7 @@ function getHeaderWidget(summary, weekly, plannedSessions, totalWorkouts = 0) {
         state: "positive",
         pill: "On track",
         headline: "You're doing well! Keep it up!",
-        subtext: "One more smart session soon keeps this going.",
+        subtext: "You're holding steady. Plan your next workout soon.",
       };
     }
 
